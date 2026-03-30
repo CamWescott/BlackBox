@@ -4,6 +4,71 @@ import { useAuth } from '../context/AuthContext';
 import { api } from '../api';
 import GlobeMap from '../components/GlobeMap';
 
+const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+function CalendarHeatmap({ monthlyHeatmap }) {
+  if (!monthlyHeatmap || Object.keys(monthlyHeatmap).length === 0) return null;
+
+  // Get year range
+  const allMonths = Object.keys(monthlyHeatmap).sort();
+  const startYear = parseInt(allMonths[0].substring(0, 4));
+  const endYear = parseInt(allMonths[allMonths.length - 1].substring(0, 4));
+  const years = [];
+  for (let y = startYear; y <= endYear; y++) years.push(y);
+
+  const maxCount = Math.max(...Object.values(monthlyHeatmap));
+
+  const getColor = (count) => {
+    if (!count) return 'bg-blackbox-light';
+    const intensity = count / maxCount;
+    if (intensity <= 0.25) return 'bg-green-900';
+    if (intensity <= 0.5) return 'bg-green-700';
+    if (intensity <= 0.75) return 'bg-green-500';
+    return 'bg-green-400';
+  };
+
+  return (
+    <div className="overflow-x-auto">
+      <div className="min-w-[500px]">
+        {/* Month labels */}
+        <div className="flex">
+          <div className="w-12" />
+          {months.map(m => (
+            <div key={m} className="flex-1 text-center text-xs text-gray-600">{m}</div>
+          ))}
+        </div>
+        {/* Year rows */}
+        {years.map(year => (
+          <div key={year} className="flex items-center gap-1 mt-1">
+            <div className="w-12 text-xs text-gray-500 text-right pr-2">{year}</div>
+            {months.map((_, mi) => {
+              const key = `${year}-${String(mi + 1).padStart(2, '0')}`;
+              const count = monthlyHeatmap[key] || 0;
+              return (
+                <div
+                  key={key}
+                  className={`flex-1 h-6 rounded-sm ${getColor(count)} transition-colors`}
+                  title={`${months[mi]} ${year}: ${count} flight${count !== 1 ? 's' : ''}`}
+                />
+              );
+            })}
+          </div>
+        ))}
+        {/* Legend */}
+        <div className="flex items-center gap-2 mt-3 justify-end">
+          <span className="text-xs text-gray-600">Less</span>
+          <div className="w-4 h-4 rounded-sm bg-blackbox-light" />
+          <div className="w-4 h-4 rounded-sm bg-green-900" />
+          <div className="w-4 h-4 rounded-sm bg-green-700" />
+          <div className="w-4 h-4 rounded-sm bg-green-500" />
+          <div className="w-4 h-4 rounded-sm bg-green-400" />
+          <span className="text-xs text-gray-600">More</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function TravelHistoryPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -11,6 +76,7 @@ export default function TravelHistoryPage() {
   const [friends, setFriends] = useState([]);
   const [selectedFriends, setSelectedFriends] = useState([]);
   const [allFlights, setAllFlights] = useState([]);
+  const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -19,14 +85,16 @@ export default function TravelHistoryPage() {
 
   const loadData = async () => {
     try {
-      const [flightData, friendData] = await Promise.all([
+      const [flightData, friendData, statsData] = await Promise.all([
         api.get('/api/flights'),
         api.get('/api/friends'),
+        api.get('/api/flights/stats'),
       ]);
       const flown = flightData.filter(f => f.status === 'flown');
       setFlights(flown);
       setAllFlights(flown);
       setFriends(friendData.filter(f => f.status === 'accepted'));
+      setStats(statsData);
     } catch (err) {
       console.error(err);
     } finally {
@@ -38,7 +106,6 @@ export default function TravelHistoryPage() {
     const isSelected = selectedFriends.find(f => f.id === friend.id);
     if (isSelected) {
       setSelectedFriends(selectedFriends.filter(f => f.id !== friend.id));
-      // Remove friend's flights
       setAllFlights(prev => prev.filter(f => f._friendId !== friend.id));
     } else {
       setSelectedFriends([...selectedFriends, friend]);
@@ -59,7 +126,6 @@ export default function TravelHistoryPage() {
     }
   };
 
-  // Merge flights - for shared flights, combine companion colors
   const displayFlights = allFlights.map(f => {
     if (f._friendColor) {
       return {
@@ -72,15 +138,6 @@ export default function TravelHistoryPage() {
     }
     return f;
   });
-
-  const stats = {
-    totalFlights: flights.length,
-    uniqueAirports: new Set([
-      ...flights.map(f => f.origin_code),
-      ...flights.map(f => f.destination_code)
-    ]).size,
-    uniqueAirlines: new Set(flights.map(f => f.airline)).size,
-  };
 
   if (loading) {
     return (
@@ -110,21 +167,136 @@ export default function TravelHistoryPage() {
       <div className="max-w-6xl mx-auto p-6 space-y-6">
         <h2 className="text-xl font-bold text-white">Travel History</h2>
 
-        {/* Stats */}
-        <div className="grid grid-cols-3 gap-4">
-          <div className="bg-blackbox-gray border border-gray-800 rounded-xl p-4 text-center">
-            <p className="text-3xl font-bold text-white">{stats.totalFlights}</p>
-            <p className="text-xs text-gray-500 mt-1">Flights Taken</p>
+        {/* Primary Stats Row */}
+        {stats && (
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            <div className="bg-blackbox-gray border border-gray-800 rounded-xl p-4 text-center">
+              <p className="text-3xl font-bold text-white">{stats.totalFlights}</p>
+              <p className="text-xs text-gray-500 mt-1">Flights</p>
+            </div>
+            <div className="bg-blackbox-gray border border-gray-800 rounded-xl p-4 text-center">
+              <p className="text-3xl font-bold text-white">{stats.totalMiles.toLocaleString()}</p>
+              <p className="text-xs text-gray-500 mt-1">Miles Flown</p>
+            </div>
+            <div className="bg-blackbox-gray border border-gray-800 rounded-xl p-4 text-center">
+              <p className="text-3xl font-bold text-white">{stats.totalKm.toLocaleString()}</p>
+              <p className="text-xs text-gray-500 mt-1">Kilometers</p>
+            </div>
+            <div className="bg-blackbox-gray border border-gray-800 rounded-xl p-4 text-center">
+              <p className="text-3xl font-bold text-white">{stats.uniqueAirports}</p>
+              <p className="text-xs text-gray-500 mt-1">Airports</p>
+            </div>
+            <div className="bg-blackbox-gray border border-gray-800 rounded-xl p-4 text-center">
+              <p className="text-3xl font-bold text-white">{stats.uniqueAirlines}</p>
+              <p className="text-xs text-gray-500 mt-1">Airlines</p>
+            </div>
           </div>
-          <div className="bg-blackbox-gray border border-gray-800 rounded-xl p-4 text-center">
-            <p className="text-3xl font-bold text-white">{stats.uniqueAirports}</p>
-            <p className="text-xs text-gray-500 mt-1">Airports Visited</p>
+        )}
+
+        {/* Insights Row */}
+        {stats && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Top Airports */}
+            <div className="bg-blackbox-gray border border-gray-800 rounded-xl p-4">
+              <h3 className="text-sm font-semibold text-gray-400 mb-3">Most Visited Airports</h3>
+              {stats.topAirports.length > 0 ? (
+                <div className="space-y-2">
+                  {stats.topAirports.map((a, i) => (
+                    <div key={a.code} className="flex justify-between items-center">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-gray-600 w-4">{i + 1}.</span>
+                        <span className="text-white font-mono text-sm">{a.code}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-20 h-1.5 bg-blackbox-light rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-white rounded-full"
+                            style={{ width: `${(a.count / stats.topAirports[0].count) * 100}%` }}
+                          />
+                        </div>
+                        <span className="text-xs text-gray-500 w-6 text-right">{a.count}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-gray-600">No data yet</p>
+              )}
+            </div>
+
+            {/* Top Airlines */}
+            <div className="bg-blackbox-gray border border-gray-800 rounded-xl p-4">
+              <h3 className="text-sm font-semibold text-gray-400 mb-3">Most Flown Airlines</h3>
+              {stats.topAirlines.length > 0 ? (
+                <div className="space-y-2">
+                  {stats.topAirlines.map((a, i) => (
+                    <div key={a.airline} className="flex justify-between items-center">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-gray-600 w-4">{i + 1}.</span>
+                        <span className="text-white text-sm">{a.airline}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-20 h-1.5 bg-blackbox-light rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-white rounded-full"
+                            style={{ width: `${(a.count / stats.topAirlines[0].count) * 100}%` }}
+                          />
+                        </div>
+                        <span className="text-xs text-gray-500 w-6 text-right">{a.count}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-gray-600">No data yet</p>
+              )}
+            </div>
+
+            {/* Cabin Class & Yearly Breakdown */}
+            <div className="bg-blackbox-gray border border-gray-800 rounded-xl p-4">
+              <h3 className="text-sm font-semibold text-gray-400 mb-3">By Year</h3>
+              {Object.keys(stats.yearlyFlights).length > 0 ? (
+                <div className="space-y-2">
+                  {Object.entries(stats.yearlyFlights)
+                    .sort(([a], [b]) => b.localeCompare(a))
+                    .map(([year, data]) => (
+                      <div key={year} className="flex justify-between items-center">
+                        <span className="text-white text-sm">{year}</span>
+                        <div className="flex items-center gap-3">
+                          <span className="text-xs text-gray-400">{data.flights} flights</span>
+                          <span className="text-xs text-gray-600">{Math.round(data.miles).toLocaleString()} mi</span>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              ) : (
+                <p className="text-xs text-gray-600">No data yet</p>
+              )}
+
+              {/* Cabin class */}
+              {stats.cabinCounts && Object.keys(stats.cabinCounts).length > 0 && (
+                <div className="mt-4 pt-3 border-t border-gray-700">
+                  <h4 className="text-xs font-semibold text-gray-500 mb-2">Cabin Class</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {Object.entries(stats.cabinCounts).map(([cabin, count]) => (
+                      <span key={cabin} className="text-xs bg-blackbox-light text-gray-300 px-2 py-1 rounded capitalize">
+                        {cabin.replace('_', ' ')}: {count}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
-          <div className="bg-blackbox-gray border border-gray-800 rounded-xl p-4 text-center">
-            <p className="text-3xl font-bold text-white">{stats.uniqueAirlines}</p>
-            <p className="text-xs text-gray-500 mt-1">Airlines Flown</p>
+        )}
+
+        {/* Flight Calendar Heatmap */}
+        {stats && stats.monthlyHeatmap && Object.keys(stats.monthlyHeatmap).length > 0 && (
+          <div className="bg-blackbox-gray border border-gray-800 rounded-xl p-4">
+            <h3 className="text-sm font-semibold text-gray-400 mb-3">Flight Activity</h3>
+            <CalendarHeatmap monthlyHeatmap={stats.monthlyHeatmap} />
           </div>
-        </div>
+        )}
 
         {/* Friend filter */}
         {friends.length > 0 && (
@@ -180,13 +352,21 @@ export default function TravelHistoryPage() {
                 <div key={f.id} className="bg-blackbox-gray border border-gray-800 rounded-lg p-3 flex items-center gap-4">
                   <div className="w-2 h-8 rounded-full" style={{ backgroundColor: user.icon_color }} />
                   <div className="flex-1">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-white font-mono text-sm">{f.origin_code}</span>
                       <span className="text-gray-600">→</span>
                       <span className="text-white font-mono text-sm">{f.destination_code}</span>
                       <span className="text-gray-500 text-xs ml-2">{f.airline} {f.flight_number}</span>
+                      {f.cabin_class && f.cabin_class !== 'economy' && (
+                        <span className="text-xs bg-blackbox-light text-gray-400 px-1.5 py-0.5 rounded capitalize">
+                          {f.cabin_class.replace('_', ' ')}
+                        </span>
+                      )}
+                      {f.trip_id && (
+                        <span className="text-xs bg-blue-900/50 text-blue-300 px-1.5 py-0.5 rounded">Connecting</span>
+                      )}
                     </div>
-                    <div className="flex items-center gap-3 mt-0.5">
+                    <div className="flex items-center gap-3 mt-0.5 flex-wrap">
                       <span className="text-gray-500 text-xs">{f.travel_date}</span>
                       {f.seat_number && <span className="text-gray-600 text-xs">Seat {f.seat_number}</span>}
                       {f.companions && f.companions.length > 0 && (
@@ -195,6 +375,9 @@ export default function TravelHistoryPage() {
                         </span>
                       )}
                     </div>
+                    {f.notes && (
+                      <p className="text-xs text-gray-600 italic mt-0.5">{f.notes}</p>
+                    )}
                   </div>
                 </div>
               ))}

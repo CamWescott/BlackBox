@@ -216,11 +216,19 @@ export default function DashboardPage() {
               (activeTab === 'upcoming' ? upcomingFlights : pastFlights).map(flight => (
                 <div key={flight.id} className="bg-blackbox-gray border border-gray-800 rounded-xl p-4 flex justify-between items-center">
                   <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-1">
+                    <div className="flex items-center gap-3 mb-1 flex-wrap">
                       <span className="text-white font-semibold">{flight.airline}</span>
                       <span className="text-gray-400 text-sm font-mono">{flight.flight_number}</span>
                       {flight.seat_number && (
                         <span className="text-xs bg-blackbox-light text-gray-300 px-2 py-0.5 rounded">Seat {flight.seat_number}</span>
+                      )}
+                      {flight.cabin_class && flight.cabin_class !== 'economy' && (
+                        <span className="text-xs bg-blackbox-light text-gray-300 px-2 py-0.5 rounded capitalize">
+                          {flight.cabin_class.replace('_', ' ')}
+                        </span>
+                      )}
+                      {flight.trip_id && (
+                        <span className="text-xs bg-blue-900/50 text-blue-300 px-2 py-0.5 rounded">Connecting</span>
                       )}
                     </div>
                     <div className="flex items-center gap-2 text-sm">
@@ -229,6 +237,9 @@ export default function DashboardPage() {
                       <span className="text-white font-mono">{flight.destination_code}</span>
                       <span className="text-gray-500 ml-2">{flight.travel_date}</span>
                     </div>
+                    {flight.notes && (
+                      <p className="text-xs text-gray-500 italic mt-1">{flight.notes}</p>
+                    )}
                     {flight.companions && flight.companions.length > 0 && (
                       <div className="flex items-center gap-2 mt-1">
                         <span className="text-xs text-gray-500">Traveling with:</span>
@@ -268,7 +279,11 @@ export default function DashboardPage() {
         <AddFlightModal
           onClose={() => setShowAddFlight(false)}
           onFlightAdded={(flight) => {
-            setFlights([flight, ...flights]);
+            if (Array.isArray(flight)) {
+              setFlights([...flight, ...flights]);
+            } else {
+              setFlights([flight, ...flights]);
+            }
           }}
           friends={acceptedFriends}
         />

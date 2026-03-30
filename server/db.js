@@ -110,9 +110,21 @@ function getDb() {
     `);
 
     db.run(`
+      CREATE TABLE IF NOT EXISTS trips (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        name TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id)
+      )
+    `);
+
+    db.run(`
       CREATE TABLE IF NOT EXISTS flights (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER NOT NULL,
+        trip_id INTEGER,
+        leg_order INTEGER DEFAULT 0,
         airline TEXT NOT NULL,
         flight_number TEXT NOT NULL,
         origin_code TEXT NOT NULL,
@@ -124,10 +136,13 @@ function getDb() {
         destination_lat REAL NOT NULL,
         destination_lng REAL NOT NULL,
         seat_number TEXT,
+        cabin_class TEXT DEFAULT 'economy',
+        notes TEXT,
         travel_date TEXT NOT NULL,
         status TEXT DEFAULT 'booked',
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users(id)
+        FOREIGN KEY (user_id) REFERENCES users(id),
+        FOREIGN KEY (trip_id) REFERENCES trips(id) ON DELETE SET NULL
       )
     `);
 

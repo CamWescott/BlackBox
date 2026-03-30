@@ -10,17 +10,142 @@ const airlines = [
   'Turkish Airlines', 'Cathay Pacific', 'ANA', 'JAL', 'Other'
 ];
 
+const cabinClasses = [
+  { value: 'economy', label: 'Economy' },
+  { value: 'premium_economy', label: 'Premium Economy' },
+  { value: 'business', label: 'Business' },
+  { value: 'first', label: 'First' },
+];
+
+function LegForm({ leg, index, onChange, onRemove, showRemove }) {
+  const update = (field, value) => onChange(index, field, value);
+
+  return (
+    <div className="border border-gray-700 rounded-lg p-4 space-y-3">
+      <div className="flex justify-between items-center">
+        <span className="text-sm text-gray-400 font-medium">
+          {showRemove ? `Leg ${index + 1}` : 'Flight Details'}
+        </span>
+        {showRemove && (
+          <button type="button" onClick={() => onRemove(index)} className="text-xs text-red-400 hover:text-red-300">&times; Remove</button>
+        )}
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-sm text-gray-400 mb-1">Airline</label>
+          <select
+            value={leg.airline}
+            onChange={(e) => update('airline', e.target.value)}
+            required
+            className="w-full px-3 py-2 bg-blackbox-gray border border-gray-700 rounded text-white text-sm focus:outline-none focus:border-gray-500"
+          >
+            <option value="">Select...</option>
+            {airlines.map(a => <option key={a} value={a}>{a}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm text-gray-400 mb-1">Flight Number</label>
+          <input
+            type="text"
+            value={leg.flight_number}
+            onChange={(e) => update('flight_number', e.target.value)}
+            placeholder="e.g. DL1234"
+            required
+            className="w-full px-3 py-2 bg-blackbox-gray border border-gray-700 rounded text-white text-sm placeholder-gray-500 focus:outline-none focus:border-gray-500"
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <AirportSearch label="Origin" value={leg.origin} onChange={(v) => update('origin', v)} placeholder="From..." />
+        <AirportSearch label="Destination" value={leg.destination} onChange={(v) => update('destination', v)} placeholder="To..." />
+      </div>
+
+      <div className="grid grid-cols-3 gap-3">
+        <div>
+          <label className="block text-sm text-gray-400 mb-1">Seat</label>
+          <input
+            type="text"
+            value={leg.seat_number}
+            onChange={(e) => update('seat_number', e.target.value)}
+            placeholder="14A"
+            className="w-full px-3 py-2 bg-blackbox-gray border border-gray-700 rounded text-white text-sm placeholder-gray-500 focus:outline-none focus:border-gray-500"
+          />
+        </div>
+        <div>
+          <label className="block text-sm text-gray-400 mb-1">Class</label>
+          <select
+            value={leg.cabin_class}
+            onChange={(e) => update('cabin_class', e.target.value)}
+            className="w-full px-3 py-2 bg-blackbox-gray border border-gray-700 rounded text-white text-sm focus:outline-none focus:border-gray-500"
+          >
+            {cabinClasses.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm text-gray-400 mb-1">Date</label>
+          <input
+            type="date"
+            value={leg.travel_date}
+            onChange={(e) => update('travel_date', e.target.value)}
+            required
+            className="w-full px-3 py-2 bg-blackbox-gray border border-gray-700 rounded text-white text-sm focus:outline-none focus:border-gray-500"
+          />
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-sm text-gray-400 mb-1">Notes</label>
+        <input
+          type="text"
+          value={leg.notes}
+          onChange={(e) => update('notes', e.target.value)}
+          placeholder="Window seat, great views..."
+          className="w-full px-3 py-2 bg-blackbox-gray border border-gray-700 rounded text-white text-sm placeholder-gray-500 focus:outline-none focus:border-gray-500"
+        />
+      </div>
+    </div>
+  );
+}
+
+const emptyLeg = () => ({
+  airline: '', flight_number: '', origin: null, destination: null,
+  seat_number: '', cabin_class: 'economy', notes: '', travel_date: '',
+});
+
 export default function AddFlightModal({ onClose, onFlightAdded, friends = [] }) {
-  const [airline, setAirline] = useState('');
-  const [flightNumber, setFlightNumber] = useState('');
-  const [origin, setOrigin] = useState(null);
-  const [destination, setDestination] = useState(null);
-  const [seatNumber, setSeatNumber] = useState('');
-  const [travelDate, setTravelDate] = useState('');
+  const [isMultiLeg, setIsMultiLeg] = useState(false);
+  const [legs, setLegs] = useState([emptyLeg()]);
   const [status, setStatus] = useState('booked');
   const [companions, setCompanions] = useState([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  const updateLeg = (index, field, value) => {
+    const updated = [...legs];
+    updated[index] = { ...updated[index], [field]: value };
+    setLegs(updated);
+  };
+
+  const addLeg = () => {
+    const prevLeg = legs[legs.length - 1];
+    const newLeg = emptyLeg();
+    // Auto-fill: new leg origin = previous leg destination
+    if (prevLeg.destination) {
+      newLeg.origin = prevLeg.destination;
+    }
+    if (prevLeg.travel_date) {
+      newLeg.travel_date = prevLeg.travel_date;
+    }
+    setLegs([...legs, newLeg]);
+  };
+
+  const removeLeg = (index) => {
+    if (legs.length <= 1) return;
+    setLegs(legs.filter((_, i) => i !== index));
+    if (legs.length <= 2) setIsMultiLeg(false);
+  };
 
   const addCompanion = () => {
     setCompanions([...companions, { name: '', email: '', seat_number: '' }]);
@@ -38,31 +163,79 @@ export default function AddFlightModal({ onClose, onFlightAdded, friends = [] })
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!origin || !destination) {
-      setError('Please select origin and destination airports');
-      return;
-    }
     setError('');
+
+    // Validate all legs
+    for (const leg of legs) {
+      if (!leg.origin || !leg.destination) {
+        setError('Please select origin and destination for all flights');
+        return;
+      }
+      if (!leg.airline || !leg.flight_number || !leg.travel_date) {
+        setError('Please fill in airline, flight number, and date for all flights');
+        return;
+      }
+    }
+
     setLoading(true);
 
     try {
-      const flight = await api.post('/api/flights', {
-        airline,
-        flight_number: flightNumber,
-        origin_code: origin.code,
-        origin_name: origin.name,
-        origin_lat: origin.lat,
-        origin_lng: origin.lng,
-        destination_code: destination.code,
-        destination_name: destination.name,
-        destination_lat: destination.lat,
-        destination_lng: destination.lng,
-        seat_number: seatNumber,
-        travel_date: travelDate,
-        status,
-        companions: companions.filter(c => c.name),
-      });
-      onFlightAdded(flight);
+      const filteredCompanions = companions.filter(c => c.name);
+
+      if (isMultiLeg && legs.length > 1) {
+        // Multi-leg trip
+        const legsPayload = legs.map(leg => ({
+          airline: leg.airline,
+          flight_number: leg.flight_number,
+          origin_code: leg.origin.code,
+          origin_name: leg.origin.name,
+          origin_lat: leg.origin.lat,
+          origin_lng: leg.origin.lng,
+          destination_code: leg.destination.code,
+          destination_name: leg.destination.name,
+          destination_lat: leg.destination.lat,
+          destination_lng: leg.destination.lng,
+          seat_number: leg.seat_number,
+          cabin_class: leg.cabin_class,
+          notes: leg.notes,
+          travel_date: leg.travel_date,
+          status,
+        }));
+
+        const result = await api.post('/api/flights', {
+          legs: legsPayload,
+          companions: filteredCompanions,
+        });
+
+        // result is an array of flights
+        if (Array.isArray(result)) {
+          result.forEach(f => onFlightAdded(f));
+        } else {
+          onFlightAdded(result);
+        }
+      } else {
+        // Single flight
+        const leg = legs[0];
+        const flight = await api.post('/api/flights', {
+          airline: leg.airline,
+          flight_number: leg.flight_number,
+          origin_code: leg.origin.code,
+          origin_name: leg.origin.name,
+          origin_lat: leg.origin.lat,
+          origin_lng: leg.origin.lng,
+          destination_code: leg.destination.code,
+          destination_name: leg.destination.name,
+          destination_lat: leg.destination.lat,
+          destination_lng: leg.destination.lng,
+          seat_number: leg.seat_number,
+          cabin_class: leg.cabin_class,
+          notes: leg.notes,
+          travel_date: leg.travel_date,
+          status,
+          companions: filteredCompanions,
+        });
+        onFlightAdded(flight);
+      }
       onClose();
     } catch (err) {
       setError(err.message);
@@ -74,9 +247,27 @@ export default function AddFlightModal({ onClose, onFlightAdded, friends = [] })
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4" style={{ zIndex: 9999 }}>
       <div className="bg-blackbox-dark border border-gray-700 rounded-xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-6">
-        <div className="flex justify-between items-center mb-6">
+        <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-bold text-white">Add Flight</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-white text-2xl">&times;</button>
+        </div>
+
+        {/* Trip type toggle */}
+        <div className="flex gap-3 mb-4">
+          <button
+            type="button"
+            onClick={() => { setIsMultiLeg(false); setLegs([legs[0]]); }}
+            className={`text-sm px-3 py-1.5 rounded-lg border transition ${!isMultiLeg ? 'bg-white text-black border-white' : 'text-gray-400 border-gray-700 hover:text-white'}`}
+          >
+            Direct Flight
+          </button>
+          <button
+            type="button"
+            onClick={() => { setIsMultiLeg(true); if (legs.length < 2) addLeg(); }}
+            className={`text-sm px-3 py-1.5 rounded-lg border transition ${isMultiLeg ? 'bg-white text-black border-white' : 'text-gray-400 border-gray-700 hover:text-white'}`}
+          >
+            Connecting / Multi-leg
+          </button>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -84,62 +275,29 @@ export default function AddFlightModal({ onClose, onFlightAdded, friends = [] })
             <div className="bg-red-900/50 border border-red-500 text-red-200 px-3 py-2 rounded text-sm">{error}</div>
           )}
 
-          {/* Airline */}
-          <div>
-            <label className="block text-sm text-gray-400 mb-1">Airline</label>
-            <select
-              value={airline}
-              onChange={(e) => setAirline(e.target.value)}
-              required
-              className="w-full px-3 py-2 bg-blackbox-gray border border-gray-700 rounded text-white text-sm focus:outline-none focus:border-gray-500"
+          {/* Flight legs */}
+          <div className="space-y-3">
+            {legs.map((leg, i) => (
+              <LegForm
+                key={i}
+                leg={leg}
+                index={i}
+                onChange={updateLeg}
+                onRemove={removeLeg}
+                showRemove={isMultiLeg && legs.length > 1}
+              />
+            ))}
+          </div>
+
+          {isMultiLeg && (
+            <button
+              type="button"
+              onClick={addLeg}
+              className="w-full py-2 text-sm border border-dashed border-gray-600 text-gray-400 rounded-lg hover:text-white hover:border-gray-400 transition"
             >
-              <option value="">Select airline...</option>
-              {airlines.map(a => <option key={a} value={a}>{a}</option>)}
-            </select>
-          </div>
-
-          {/* Flight Number */}
-          <div>
-            <label className="block text-sm text-gray-400 mb-1">Flight Number</label>
-            <input
-              type="text"
-              value={flightNumber}
-              onChange={(e) => setFlightNumber(e.target.value)}
-              placeholder="e.g. DL1234"
-              required
-              className="w-full px-3 py-2 bg-blackbox-gray border border-gray-700 rounded text-white text-sm placeholder-gray-500 focus:outline-none focus:border-gray-500"
-            />
-          </div>
-
-          {/* Origin / Destination */}
-          <div className="grid grid-cols-2 gap-3">
-            <AirportSearch label="Origin" value={origin} onChange={setOrigin} placeholder="From..." />
-            <AirportSearch label="Destination" value={destination} onChange={setDestination} placeholder="To..." />
-          </div>
-
-          {/* Seat & Date */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-sm text-gray-400 mb-1">Seat Number</label>
-              <input
-                type="text"
-                value={seatNumber}
-                onChange={(e) => setSeatNumber(e.target.value)}
-                placeholder="e.g. 14A"
-                className="w-full px-3 py-2 bg-blackbox-gray border border-gray-700 rounded text-white text-sm placeholder-gray-500 focus:outline-none focus:border-gray-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm text-gray-400 mb-1">Travel Date</label>
-              <input
-                type="date"
-                value={travelDate}
-                onChange={(e) => setTravelDate(e.target.value)}
-                required
-                className="w-full px-3 py-2 bg-blackbox-gray border border-gray-700 rounded text-white text-sm focus:outline-none focus:border-gray-500"
-              />
-            </div>
-          </div>
+              + Add Another Leg
+            </button>
+          )}
 
           {/* Status */}
           <div>
@@ -160,7 +318,6 @@ export default function AddFlightModal({ onClose, onFlightAdded, friends = [] })
           <div>
             <label className="text-sm text-gray-400 mb-2 block">Travel Companions</label>
 
-            {/* Pick from friends list */}
             {friends.length > 0 && (
               <div className="mb-3">
                 <select
@@ -179,9 +336,7 @@ export default function AddFlightModal({ onClose, onFlightAdded, friends = [] })
                   {friends
                     .filter(f => !companions.find(c => c.email === f.email))
                     .map(f => (
-                      <option key={f.id} value={f.id}>
-                        {f.name} ({f.email})
-                      </option>
+                      <option key={f.id} value={f.id}>{f.name} ({f.email})</option>
                     ))}
                 </select>
               </div>
@@ -235,7 +390,7 @@ export default function AddFlightModal({ onClose, onFlightAdded, friends = [] })
             disabled={loading}
             className="w-full py-3 bg-white text-black font-semibold rounded-lg hover:bg-gray-200 transition disabled:opacity-50"
           >
-            {loading ? 'Adding...' : 'Add Flight'}
+            {loading ? 'Adding...' : isMultiLeg ? `Add Trip (${legs.length} legs)` : 'Add Flight'}
           </button>
         </form>
       </div>
