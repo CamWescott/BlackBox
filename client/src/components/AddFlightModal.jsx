@@ -10,7 +10,7 @@ const airlines = [
   'Turkish Airlines', 'Cathay Pacific', 'ANA', 'JAL', 'Other'
 ];
 
-export default function AddFlightModal({ onClose, onFlightAdded }) {
+export default function AddFlightModal({ onClose, onFlightAdded, friends = [] }) {
   const [airline, setAirline] = useState('');
   const [flightNumber, setFlightNumber] = useState('');
   const [origin, setOrigin] = useState(null);
@@ -158,28 +158,66 @@ export default function AddFlightModal({ onClose, onFlightAdded }) {
 
           {/* Companions */}
           <div>
-            <div className="flex justify-between items-center mb-2">
-              <label className="text-sm text-gray-400">Travel Companions</label>
+            <label className="text-sm text-gray-400 mb-2 block">Travel Companions</label>
+
+            {/* Pick from friends list */}
+            {friends.length > 0 && (
+              <div className="mb-3">
+                <select
+                  onChange={(e) => {
+                    const friendId = e.target.value;
+                    if (!friendId) return;
+                    const friend = friends.find(f => String(f.id) === friendId);
+                    if (friend && !companions.find(c => c.email === friend.email)) {
+                      setCompanions([...companions, { name: friend.name, email: friend.email, seat_number: '', fromFriend: true }]);
+                    }
+                    e.target.value = '';
+                  }}
+                  className="w-full px-3 py-2 bg-blackbox-gray border border-gray-700 rounded text-white text-sm focus:outline-none focus:border-gray-500"
+                >
+                  <option value="">Select from friends...</option>
+                  {friends
+                    .filter(f => !companions.find(c => c.email === f.email))
+                    .map(f => (
+                      <option key={f.id} value={f.id}>
+                        {f.name} ({f.email})
+                      </option>
+                    ))}
+                </select>
+              </div>
+            )}
+
+            <div className="flex justify-end mb-2">
               <button type="button" onClick={addCompanion} className="text-xs text-gray-300 hover:text-white border border-gray-600 px-2 py-1 rounded">
-                + Add Companion
+                + Add Manually
               </button>
             </div>
+
             {companions.map((c, i) => (
-              <div key={i} className="flex gap-2 mb-2">
-                <input
-                  type="text"
-                  value={c.name}
-                  onChange={(e) => updateCompanion(i, 'name', e.target.value)}
-                  placeholder="Name"
-                  className="flex-1 px-2 py-1.5 bg-blackbox-gray border border-gray-700 rounded text-white text-sm placeholder-gray-500 focus:outline-none"
-                />
-                <input
-                  type="email"
-                  value={c.email}
-                  onChange={(e) => updateCompanion(i, 'email', e.target.value)}
-                  placeholder="Email (optional)"
-                  className="flex-1 px-2 py-1.5 bg-blackbox-gray border border-gray-700 rounded text-white text-sm placeholder-gray-500 focus:outline-none"
-                />
+              <div key={i} className="flex gap-2 mb-2 items-center">
+                {c.fromFriend ? (
+                  <div className="flex-1 px-2 py-1.5 bg-blackbox-gray border border-gray-700 rounded text-white text-sm flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: friends.find(f => f.email === c.email)?.icon_color || '#888' }} />
+                    {c.name}
+                  </div>
+                ) : (
+                  <>
+                    <input
+                      type="text"
+                      value={c.name}
+                      onChange={(e) => updateCompanion(i, 'name', e.target.value)}
+                      placeholder="Name"
+                      className="flex-1 px-2 py-1.5 bg-blackbox-gray border border-gray-700 rounded text-white text-sm placeholder-gray-500 focus:outline-none"
+                    />
+                    <input
+                      type="email"
+                      value={c.email}
+                      onChange={(e) => updateCompanion(i, 'email', e.target.value)}
+                      placeholder="Email (optional)"
+                      className="flex-1 px-2 py-1.5 bg-blackbox-gray border border-gray-700 rounded text-white text-sm placeholder-gray-500 focus:outline-none"
+                    />
+                  </>
+                )}
                 <input
                   type="text"
                   value={c.seat_number}

@@ -270,6 +270,7 @@ export default function DashboardPage() {
           onFlightAdded={(flight) => {
             setFlights([flight, ...flights]);
           }}
+          friends={acceptedFriends}
         />
       )}
     </div>
