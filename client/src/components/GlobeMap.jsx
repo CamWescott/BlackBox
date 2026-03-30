@@ -62,7 +62,7 @@ export default function GlobeMap({ flights = [], height = '400px', showFlags = f
 
     if (showPaths) {
       displayFlights.forEach(f => {
-        // Determine colors for this flight
+        // Collect all colors for this flight (user + companions)
         const colors = [userColor];
         if (f.companions) {
           f.companions.forEach(c => {
@@ -74,37 +74,28 @@ export default function GlobeMap({ flights = [], height = '400px', showFlags = f
 
         const origin = [f.origin_lat, f.origin_lng];
         const dest = [f.destination_lat, f.destination_lng];
+        const curvePoints = generateCurve(origin, dest);
 
-        // Draw curved path for each color
-        colors.forEach((color, idx) => {
-          const offset = (idx - (colors.length - 1) / 2) * 3;
-          const curvePoints = generateCurve(origin, dest, offset);
+        // Single line with alternating color blocks
+        drawColorBlockLine(map, curvePoints, colors);
 
-          L.polyline(curvePoints, {
-            color: color,
-            weight: 3,
-            opacity: 0.8,
-            dashArray: idx > 0 ? '8 4' : null,
-          }).addTo(map);
-        });
-
-        // Airplane icon at midpoint
+        // Airplane SVG icon pointing in direction of travel
         const mid = getMidpoint(origin, dest);
         const angle = getAngle(origin, dest);
-        const primaryColor = colors[0];
 
-        // Build multi-color plane if shared flight
-        const planeHtml = colors.length > 1
-          ? `<div style="font-size:18px; transform:rotate(${angle}deg); filter: drop-shadow(0 0 3px ${primaryColor});">
-              <span style="background: linear-gradient(90deg, ${colors.join(', ')}); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">✈</span>
-            </div>`
-          : `<div style="font-size:18px; transform:rotate(${angle}deg); color:${primaryColor}; filter: drop-shadow(0 0 3px ${primaryColor});">✈</div>`;
+        // SVG plane that points UP (north) at 0°, so rotate(angle) aligns it to bearing
+        const planeColor = colors.length === 1 ? colors[0] : colors[0];
+        const planeSvg = `
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" width="24" height="24">
+            <path d="M10,1 L8,8 L2,11 L4,12 L8,10 L8,16 L6,17 L10,19 L14,17 L12,16 L12,10 L16,12 L18,11 L12,8 Z"
+              fill="${planeColor}" stroke="rgba(0,0,0,0.6)" stroke-width="0.5"/>
+          </svg>`;
 
         const planeIcon = L.divIcon({
-          html: planeHtml,
+          html: `<div style="transform:rotate(${angle}deg);transform-origin:center;width:24px;height:24px;filter:drop-shadow(0 0 3px rgba(0,0,0,0.8));">${planeSvg}</div>`,
           className: 'plane-icon',
-          iconSize: [20, 20],
-          iconAnchor: [10, 10],
+          iconSize: [24, 24],
+          iconAnchor: [12, 12],
         });
 
         L.marker(mid, { icon: planeIcon })
@@ -136,31 +127,45 @@ export default function GlobeMap({ flights = [], height = '400px', showFlags = f
   return <div ref={mapRef} style={{ height, width: '100%', borderRadius: '12px' }} />;
 }
 
-function generateCurve(origin, dest, offset = 0) {
+function generateCurve(origin, dest) {
   const points = [];
-  const numPoints = 50;
+  const numPoints = 60;
+  const dist = Math.sqrt(Math.pow(dest[0] - origin[0], 2) + Math.pow(dest[1] - origin[1], 2));
+  const arcHeight = dist * 0.15;
 
   for (let i = 0; i <= numPoints; i++) {
     const t = i / numPoints;
     const lat = origin[0] + (dest[0] - origin[0]) * t;
     const lng = origin[1] + (dest[1] - origin[1]) * t;
-
-    // Arc height based on distance
-    const dist = Math.sqrt(Math.pow(dest[0] - origin[0], 2) + Math.pow(dest[1] - origin[1], 2));
-    const arcHeight = dist * 0.15;
-    const arc = Math.sin(Math.PI * t) * arcHeight;
-
-    // Perpendicular offset for multi-color lines
-    const dx = dest[1] - origin[1];
-    const dy = dest[0] - origin[0];
-    const len = Math.sqrt(dx * dx + dy * dy) || 1;
-    const perpLat = (-dx / len) * offset * 0.02;
-    const perpLng = (dy / len) * offset * 0.02;
-
-    points.push([lat + arc * 0.01 + perpLat, lng + perpLng]);
+    const arc = Math.sin(Math.PI * t) * arcHeight * 0.01;
+    points.push([lat + arc, lng]);
   }
 
   return points;
+}
+
+// Draw a single curved line with alternating color blocks
+function drawColorBlockLine(map, curvePoints, colors) {
+  if (colors.length === 1) {
+    L.polyline(curvePoints, { color: colors[0], weight: 3, opacity: 0.9 }).addTo(map);
+    return;
+  }
+
+  // Split into (colors.length * 5) blocks, cycling through colors
+  const numBlocks = colors.length * 5;
+  const blockSize = Math.ceil(curvePoints.length / numBlocks);
+
+  for (let block = 0; block < numBlocks; block++) {
+    const start = block * blockSize;
+    const end = Math.min(start + blockSize + 1, curvePoints.length); // +1 overlap prevents gaps
+    if (start >= curvePoints.length) break;
+
+    L.polyline(curvePoints.slice(start, end), {
+      color: colors[block % colors.length],
+      weight: 3,
+      opacity: 0.9,
+    }).addTo(map);
+  }
 }
 
 function getMidpoint(origin, dest) {
