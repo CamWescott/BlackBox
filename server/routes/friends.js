@@ -1,5 +1,4 @@
 const express = require('express');
-const db = require('../db');
 const { authenticate } = require('../middleware/auth');
 
 const router = express.Router();
@@ -7,6 +6,7 @@ router.use(authenticate);
 
 // Get all friends
 router.get('/', (req, res) => {
+  const db = req.app.locals.db;
   const friends = db.prepare(`
     SELECT u.id, u.email, u.name, u.icon_color, f.status, f.id as friendship_id,
       CASE WHEN f.user_id = ? THEN 'sent' ELSE 'received' END as direction
@@ -20,6 +20,7 @@ router.get('/', (req, res) => {
 
 // Send friend request by email
 router.post('/request', (req, res) => {
+  const db = req.app.locals.db;
   const { email } = req.body;
   if (!email) {
     return res.status(400).json({ error: 'Email is required' });
@@ -49,26 +50,32 @@ router.post('/request', (req, res) => {
 
 // Accept friend request
 router.patch('/:id/accept', (req, res) => {
-  const friendship = db.prepare('SELECT * FROM friends WHERE id = ? AND friend_id = ?').get(req.params.id, req.userId);
+  const db = req.app.locals.db;
+  const id = Number(req.params.id);
+
+  const friendship = db.prepare('SELECT * FROM friends WHERE id = ? AND friend_id = ?').get(id, req.userId);
   if (!friendship) {
     return res.status(404).json({ error: 'Friend request not found' });
   }
 
-  db.prepare('UPDATE friends SET status = ? WHERE id = ?').run('accepted', req.params.id);
+  db.prepare('UPDATE friends SET status = ? WHERE id = ?').run('accepted', id);
   res.json({ success: true });
 });
 
 // Decline / remove friend
 router.delete('/:id', (req, res) => {
+  const db = req.app.locals.db;
+  const id = Number(req.params.id);
+
   const friendship = db.prepare(`
     SELECT * FROM friends WHERE id = ? AND (user_id = ? OR friend_id = ?)
-  `).get(req.params.id, req.userId, req.userId);
+  `).get(id, req.userId, req.userId);
 
   if (!friendship) {
     return res.status(404).json({ error: 'Friendship not found' });
   }
 
-  db.prepare('DELETE FROM friends WHERE id = ?').run(req.params.id);
+  db.prepare('DELETE FROM friends WHERE id = ?').run(id);
   res.json({ success: true });
 });
 

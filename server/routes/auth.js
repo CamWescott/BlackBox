@@ -1,12 +1,12 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const db = require('../db');
 const { JWT_SECRET } = require('../middleware/auth');
 
 const router = express.Router();
 
 router.post('/register', (req, res) => {
+  const db = req.app.locals.db;
   const { email, name, password } = req.body;
   if (!email || !name || !password) {
     return res.status(400).json({ error: 'Email, name, and password are required' });
@@ -28,6 +28,7 @@ router.post('/register', (req, res) => {
 });
 
 router.post('/login', (req, res) => {
+  const db = req.app.locals.db;
   const { email, password } = req.body;
   if (!email || !password) {
     return res.status(400).json({ error: 'Email and password are required' });
