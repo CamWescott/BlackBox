@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import L from 'leaflet';
 
-export default function GlobeMap({ flights = [], height = '400px', showFlags = false, showPaths = false, userColor = '#22c55e' }) {
+export default function GlobeMap({ flights = [], height = '400px', showFlags = false, showPaths = false, userColor = '#22c55e', theme = 'dark' }) {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
 
@@ -18,7 +18,11 @@ export default function GlobeMap({ flights = [], height = '400px', showFlags = f
       worldCopyJump: true,
     });
 
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    const tileUrl = theme === 'light'
+      ? 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'
+      : 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+
+    L.tileLayer(tileUrl, {
       attribution: '&copy; OpenStreetMap &copy; CARTO',
       subdomains: 'abcd',
       maxZoom: 19,
@@ -83,8 +87,7 @@ export default function GlobeMap({ flights = [], height = '400px', showFlags = f
         const mid = getMidpoint(origin, dest);
         const angle = getAngle(origin, dest);
 
-        // SVG plane that points UP (north) at 0°, so rotate(angle) aligns it to bearing
-        const planeColor = colors.length === 1 ? colors[0] : colors[0];
+        const planeColor = colors[0];
         const planeSvg = `
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" width="24" height="24">
             <path d="M10,1 L8,8 L2,11 L4,12 L8,10 L8,16 L6,17 L10,19 L14,17 L12,16 L12,10 L16,12 L18,11 L12,8 Z"
@@ -98,9 +101,39 @@ export default function GlobeMap({ flights = [], height = '400px', showFlags = f
           iconAnchor: [12, 12],
         });
 
+        // Build popup with airline info and companions
+        const companionNames = (f.companions || []).map(c => c.user_name || c.name).filter(Boolean);
+        let popupHtml = `<b>${f.airline} ${f.flight_number}</b><br>${f.origin_code} → ${f.destination_code}<br>${f.travel_date}`;
+        if (f.cabin_class && f.cabin_class !== 'economy') {
+          popupHtml += `<br><span style="text-transform:capitalize">${f.cabin_class.replace('_', ' ')}</span>`;
+        }
+        if (companionNames.length > 0) {
+          popupHtml += `<br><i>with ${companionNames.join(', ')}</i>`;
+        }
+
         L.marker(mid, { icon: planeIcon })
           .addTo(map)
-          .bindPopup(`<b>${f.airline} ${f.flight_number}</b><br>${f.origin_code} → ${f.destination_code}<br>${f.travel_date}`);
+          .bindPopup(popupHtml);
+
+        // Airline label at midpoint
+        const labelIcon = L.divIcon({
+          html: `<div style="
+            font-size:10px;
+            font-weight:600;
+            color:${theme === 'light' ? '#111' : '#fff'};
+            background:${theme === 'light' ? 'rgba(255,255,255,0.85)' : 'rgba(0,0,0,0.7)'};
+            padding:1px 5px;
+            border-radius:4px;
+            white-space:nowrap;
+            pointer-events:none;
+            transform:translateY(-18px);
+          ">${f.airline}</div>`,
+          className: 'airline-label',
+          iconSize: [0, 0],
+          iconAnchor: [0, 0],
+        });
+
+        L.marker(mid, { icon: labelIcon, interactive: false }).addTo(map);
       });
     }
 
@@ -122,7 +155,7 @@ export default function GlobeMap({ flights = [], height = '400px', showFlags = f
         mapInstanceRef.current = null;
       }
     };
-  }, [flights, showFlags, showPaths, userColor]);
+  }, [flights, showFlags, showPaths, userColor, theme]);
 
   return <div ref={mapRef} style={{ height, width: '100%', borderRadius: '12px' }} />;
 }

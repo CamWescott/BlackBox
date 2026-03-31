@@ -35,26 +35,26 @@ export default function AirportSearch({ label, value, onChange, placeholder }) {
 
   return (
     <div ref={ref} className="relative">
-      {label && <label className="block text-sm text-gray-400 mb-1">{label}</label>}
+      {label && <label className="block text-sm text-theme-muted mb-1">{label}</label>}
       <input
         type="text"
         value={query}
         onChange={handleInput}
         onFocus={() => { if (results.length) setOpen(true); }}
         placeholder={placeholder || 'Search airport...'}
-        className="w-full px-3 py-2 bg-blackbox-gray border border-gray-700 rounded text-white text-sm placeholder-gray-500 focus:outline-none focus:border-gray-500"
+        className="w-full px-3 py-2 bg-theme-tertiary border border-theme rounded text-theme-primary text-sm placeholder-gray-500 focus:outline-none"
       />
       {open && results.length > 0 && (
-        <div className="absolute z-50 w-full mt-1 bg-blackbox-gray border border-gray-700 rounded shadow-xl max-h-48 overflow-y-auto">
+        <div className="absolute w-full mt-1 bg-theme-secondary border border-theme rounded shadow-xl max-h-48 overflow-y-auto" style={{ zIndex: 10000 }}>
           {results.map((a) => (
             <button
               key={a.code}
               type="button"
               onClick={() => select(a)}
-              className="w-full text-left px-3 py-2 hover:bg-blackbox-light text-sm text-white"
+              className="w-full text-left px-3 py-2 hover:bg-theme-tertiary text-sm text-theme-primary"
             >
-              <span className="font-mono text-gray-300">{a.code}</span>{' '}
-              <span className="text-gray-400">- {a.name}, {a.city}</span>
+              <span className="font-mono text-theme-secondary">{a.code}</span>{' '}
+              <span className="text-theme-muted">- {a.name}, {a.city}</span>
             </button>
           ))}
         </div>

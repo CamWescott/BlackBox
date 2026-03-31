@@ -158,6 +158,17 @@ function getDb() {
       )
     `);
 
+    // Migrations: add columns that may not exist on older databases
+    const migrations = [
+      'ALTER TABLE flights ADD COLUMN trip_id INTEGER',
+      'ALTER TABLE flights ADD COLUMN leg_order INTEGER DEFAULT 0',
+      'ALTER TABLE flights ADD COLUMN cabin_class TEXT DEFAULT \'economy\'',
+      'ALTER TABLE flights ADD COLUMN notes TEXT',
+    ];
+    for (const sql of migrations) {
+      try { db.run(sql); } catch (e) { /* column already exists */ }
+    }
+
     wrapper._save();
     return wrapper;
   });

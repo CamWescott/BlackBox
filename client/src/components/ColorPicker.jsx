@@ -22,16 +22,19 @@ export default function ColorPicker({ currentColor, onColorChange }) {
 
   return (
     <div>
-      <label className="block text-sm text-gray-400 mb-2">Your Icon Color</label>
+      <label className="block text-sm text-theme-muted mb-2">Your Icon Color</label>
       <div className="flex flex-wrap gap-2">
         {colors.map(c => (
           <button
             key={c}
             onClick={() => handleColor(c)}
             className={`w-7 h-7 rounded-full border-2 transition ${
-              currentColor === c ? 'border-white scale-110' : 'border-gray-600 hover:border-gray-400'
+              currentColor === c ? 'scale-110 border-theme-primary' : 'border-theme hover:border-theme-primary'
             }`}
-            style={{ backgroundColor: c }}
+            style={{
+              backgroundColor: c,
+              borderColor: currentColor === c ? 'var(--text-primary)' : undefined,
+            }}
           />
         ))}
       </div>

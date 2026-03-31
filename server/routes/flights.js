@@ -37,6 +37,69 @@ router.get('/', (req, res) => {
   res.json(attachCompanions(db, flights));
 });
 
+// Get travel stats (must be before /friend/:friendId to avoid route conflict)
+router.get('/stats', (req, res) => {
+  const db = req.app.locals.db;
+  const flights = db.prepare(`
+    SELECT * FROM flights WHERE user_id = ? AND status = 'flown'
+  `).all(req.userId);
+
+  let totalMiles = 0;
+  flights.forEach(f => {
+    totalMiles += haversine(f.origin_lat, f.origin_lng, f.destination_lat, f.destination_lng);
+  });
+
+  const airportCounts = {};
+  flights.forEach(f => {
+    airportCounts[f.origin_code] = (airportCounts[f.origin_code] || 0) + 1;
+    airportCounts[f.destination_code] = (airportCounts[f.destination_code] || 0) + 1;
+  });
+  const topAirports = Object.entries(airportCounts)
+    .sort((a, b) => b[1] - a[1]).slice(0, 5)
+    .map(([code, count]) => ({ code, count }));
+
+  const airlineCounts = {};
+  flights.forEach(f => {
+    airlineCounts[f.airline] = (airlineCounts[f.airline] || 0) + 1;
+  });
+  const topAirlines = Object.entries(airlineCounts)
+    .sort((a, b) => b[1] - a[1]).slice(0, 5)
+    .map(([airline, count]) => ({ airline, count }));
+
+  const yearlyFlights = {};
+  flights.forEach(f => {
+    const year = f.travel_date.substring(0, 4);
+    if (!yearlyFlights[year]) yearlyFlights[year] = { flights: 0, miles: 0 };
+    yearlyFlights[year].flights += 1;
+    yearlyFlights[year].miles += haversine(f.origin_lat, f.origin_lng, f.destination_lat, f.destination_lng);
+  });
+
+  const monthlyHeatmap = {};
+  flights.forEach(f => {
+    const month = f.travel_date.substring(0, 7);
+    monthlyHeatmap[month] = (monthlyHeatmap[month] || 0) + 1;
+  });
+
+  const cabinCounts = {};
+  flights.forEach(f => {
+    const cabin = f.cabin_class || 'economy';
+    cabinCounts[cabin] = (cabinCounts[cabin] || 0) + 1;
+  });
+
+  res.json({
+    totalFlights: flights.length,
+    totalMiles: Math.round(totalMiles),
+    totalKm: Math.round(totalMiles * 1.60934),
+    uniqueAirports: new Set([...flights.map(f => f.origin_code), ...flights.map(f => f.destination_code)]).size,
+    uniqueAirlines: new Set(flights.map(f => f.airline)).size,
+    topAirports,
+    topAirlines,
+    yearlyFlights,
+    monthlyHeatmap,
+    cabinCounts,
+  });
+});
+
 // Get flights for a friend
 router.get('/friend/:friendId', (req, res) => {
   const db = req.app.locals.db;
@@ -56,77 +119,6 @@ router.get('/friend/:friendId', (req, res) => {
     SELECT * FROM flights WHERE user_id = ? ORDER BY travel_date DESC
   `).all(friendId);
   res.json(attachCompanions(db, flights));
-});
-
-// Get travel stats
-router.get('/stats', (req, res) => {
-  const db = req.app.locals.db;
-  const flights = db.prepare(`
-    SELECT * FROM flights WHERE user_id = ? AND status = 'flown'
-  `).all(req.userId);
-
-  // Total miles
-  let totalMiles = 0;
-  flights.forEach(f => {
-    totalMiles += haversine(f.origin_lat, f.origin_lng, f.destination_lat, f.destination_lng);
-  });
-
-  // Most visited airports
-  const airportCounts = {};
-  flights.forEach(f => {
-    airportCounts[f.origin_code] = (airportCounts[f.origin_code] || 0) + 1;
-    airportCounts[f.destination_code] = (airportCounts[f.destination_code] || 0) + 1;
-  });
-  const topAirports = Object.entries(airportCounts)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 5)
-    .map(([code, count]) => ({ code, count }));
-
-  // Most flown airlines
-  const airlineCounts = {};
-  flights.forEach(f => {
-    airlineCounts[f.airline] = (airlineCounts[f.airline] || 0) + 1;
-  });
-  const topAirlines = Object.entries(airlineCounts)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 5)
-    .map(([airline, count]) => ({ airline, count }));
-
-  // Yearly breakdown
-  const yearlyFlights = {};
-  flights.forEach(f => {
-    const year = f.travel_date.substring(0, 4);
-    if (!yearlyFlights[year]) yearlyFlights[year] = { flights: 0, miles: 0 };
-    yearlyFlights[year].flights += 1;
-    yearlyFlights[year].miles += haversine(f.origin_lat, f.origin_lng, f.destination_lat, f.destination_lng);
-  });
-
-  // Monthly heatmap (flight count per month for all years)
-  const monthlyHeatmap = {};
-  flights.forEach(f => {
-    const month = f.travel_date.substring(0, 7); // YYYY-MM
-    monthlyHeatmap[month] = (monthlyHeatmap[month] || 0) + 1;
-  });
-
-  // Cabin class breakdown
-  const cabinCounts = {};
-  flights.forEach(f => {
-    const cabin = f.cabin_class || 'economy';
-    cabinCounts[cabin] = (cabinCounts[cabin] || 0) + 1;
-  });
-
-  res.json({
-    totalFlights: flights.length,
-    totalMiles: Math.round(totalMiles),
-    totalKm: Math.round(totalMiles * 1.60934),
-    uniqueAirports: new Set([...flights.map(f => f.origin_code), ...flights.map(f => f.destination_code)]).size,
-    uniqueAirlines: new Set(flights.map(f => f.airline)).size,
-    topAirports,
-    topAirlines,
-    yearlyFlights,
-    monthlyHeatmap,
-    cabinCounts,
-  });
 });
 
 // Add a new flight (or multi-leg trip)
