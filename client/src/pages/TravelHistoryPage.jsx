@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import { api } from '../api';
+import { getFlights, getFriends, getFriendFlights, computeStats } from '../services/firestore';
 import GlobeMap from '../components/GlobeMap';
 import Header from '../components/Header';
 
@@ -10,7 +10,6 @@ const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov
 function CalendarHeatmap({ monthlyHeatmap }) {
   if (!monthlyHeatmap || Object.keys(monthlyHeatmap).length === 0) return null;
 
-  // Get year range
   const allMonths = Object.keys(monthlyHeatmap).sort();
   const startYear = parseInt(allMonths[0].substring(0, 4));
   const endYear = parseInt(allMonths[allMonths.length - 1].substring(0, 4));
@@ -31,14 +30,12 @@ function CalendarHeatmap({ monthlyHeatmap }) {
   return (
     <div className="overflow-x-auto">
       <div className="min-w-[500px]">
-        {/* Month labels */}
         <div className="flex">
           <div className="w-12" />
           {months.map(m => (
             <div key={m} className="flex-1 text-center text-xs text-theme-faint">{m}</div>
           ))}
         </div>
-        {/* Year rows */}
         {years.map(year => (
           <div key={year} className="flex items-center gap-1 mt-1">
             <div className="w-12 text-xs text-theme-muted text-right pr-2">{year}</div>
@@ -55,7 +52,6 @@ function CalendarHeatmap({ monthlyHeatmap }) {
             })}
           </div>
         ))}
-        {/* Legend */}
         <div className="flex items-center gap-2 mt-3 justify-end">
           <span className="text-xs text-theme-faint">Less</span>
           <div className="w-4 h-4 rounded-sm bg-theme-tertiary" />
@@ -86,16 +82,15 @@ export default function TravelHistoryPage() {
 
   const loadData = async () => {
     try {
-      const [flightData, friendData, statsData] = await Promise.all([
-        api.get('/api/flights'),
-        api.get('/api/friends'),
-        api.get('/api/flights/stats'),
+      const [flightData, friendData] = await Promise.all([
+        getFlights(user.id),
+        getFriends(user.id),
       ]);
       const flown = flightData.filter(f => f.status === 'flown');
       setFlights(flown);
       setAllFlights(flown);
       setFriends(friendData.filter(f => f.status === 'accepted'));
-      setStats(statsData);
+      setStats(computeStats(flightData));
     } catch (err) {
       console.error(err);
     } finally {
@@ -111,7 +106,7 @@ export default function TravelHistoryPage() {
     } else {
       setSelectedFriends([...selectedFriends, friend]);
       try {
-        const friendFlights = await api.get(`/api/flights/friend/${friend.id}`);
+        const friendFlights = await getFriendFlights(friend.id);
         const flown = friendFlights
           .filter(f => f.status === 'flown')
           .map(f => ({
@@ -184,7 +179,6 @@ export default function TravelHistoryPage() {
         {/* Insights Row */}
         {stats && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Top Airports */}
             <div className="bg-theme-secondary border border-theme-light rounded-xl p-4">
               <h3 className="text-sm font-semibold text-theme-muted mb-3">Most Visited Airports</h3>
               {stats.topAirports.length > 0 ? (
@@ -212,7 +206,6 @@ export default function TravelHistoryPage() {
               )}
             </div>
 
-            {/* Top Airlines */}
             <div className="bg-theme-secondary border border-theme-light rounded-xl p-4">
               <h3 className="text-sm font-semibold text-theme-muted mb-3">Most Flown Airlines</h3>
               {stats.topAirlines.length > 0 ? (
@@ -240,7 +233,6 @@ export default function TravelHistoryPage() {
               )}
             </div>
 
-            {/* Cabin Class & Yearly Breakdown */}
             <div className="bg-theme-secondary border border-theme-light rounded-xl p-4">
               <h3 className="text-sm font-semibold text-theme-muted mb-3">By Year</h3>
               {Object.keys(stats.yearlyFlights).length > 0 ? (
@@ -261,7 +253,6 @@ export default function TravelHistoryPage() {
                 <p className="text-xs text-theme-faint">No data yet</p>
               )}
 
-              {/* Cabin class */}
               {stats.cabinCounts && Object.keys(stats.cabinCounts).length > 0 && (
                 <div className="mt-4 pt-3 border-t border-theme">
                   <h4 className="text-xs font-semibold text-gray-500 mb-2">Cabin Class</h4>

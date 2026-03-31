@@ -1,7 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import { api } from '../api';
+import {
+  getFlights, deleteFlight, updateFlightStatus,
+  getFriends, sendFriendRequest, acceptFriendRequest, removeFriend,
+} from '../services/firestore';
 import GlobeMap from '../components/GlobeMap';
 import ColorPicker from '../components/ColorPicker';
 import AddFlightModal from '../components/AddFlightModal';
@@ -50,13 +53,13 @@ export default function DashboardPage() {
 
   const loadData = async () => {
     try {
-      const flightData = await api.get('/api/flights');
+      const flightData = await getFlights(user.id);
       setFlights(flightData);
     } catch (err) {
       console.error('Failed to load flights:', err);
     }
     try {
-      const friendData = await api.get('/api/friends');
+      const friendData = await getFriends(user.id);
       setFriends(friendData);
     } catch (err) {
       console.error('Failed to load friends:', err);
@@ -67,7 +70,7 @@ export default function DashboardPage() {
     e.preventDefault();
     setFriendMsg('');
     try {
-      await api.post('/api/friends/request', { email: friendEmail });
+      await sendFriendRequest(user.id, friendEmail);
       setFriendMsg('Friend request sent!');
       setFriendEmail('');
       loadData();
@@ -78,28 +81,28 @@ export default function DashboardPage() {
 
   const handleAcceptFriend = async (id) => {
     try {
-      await api.patch(`/api/friends/${id}/accept`);
+      await acceptFriendRequest(id);
       loadData();
     } catch (err) { console.error(err); }
   };
 
   const handleRemoveFriend = async (id) => {
     try {
-      await api.delete(`/api/friends/${id}`);
+      await removeFriend(id);
       loadData();
     } catch (err) { console.error(err); }
   };
 
   const handleDeleteFlight = async (id) => {
     try {
-      await api.delete(`/api/flights/${id}`);
+      await deleteFlight(id);
       setFlights(flights.filter(f => f.id !== id));
     } catch (err) { console.error(err); }
   };
 
   const handleMarkFlown = async (id) => {
     try {
-      await api.patch(`/api/flights/${id}/status`, { status: 'flown' });
+      await updateFlightStatus(id, 'flown');
       setFlights(flights.map(f => f.id === id ? { ...f, status: 'flown' } : f));
     } catch (err) { console.error(err); }
   };
@@ -109,10 +112,8 @@ export default function DashboardPage() {
   const pendingRequests = friends.filter(f => f.status === 'pending' && f.direction === 'received');
   const acceptedFriends = friends.filter(f => f.status === 'accepted');
 
-  // Get unique airlines for filter
   const allAirlines = [...new Set(flights.map(f => f.airline))].sort();
 
-  // Filter flights
   const filterFlights = (list) => {
     return list.filter(f => {
       const q = searchQuery.toLowerCase();
@@ -204,7 +205,6 @@ export default function DashboardPage() {
 
         {/* Flights */}
         <section>
-          {/* Tabs + Add button */}
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
             <div className="flex gap-4">
               <button

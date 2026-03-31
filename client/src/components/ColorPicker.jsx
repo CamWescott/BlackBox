@@ -1,5 +1,5 @@
-import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
+import { updateUserColor } from '../services/firestore';
 
 const colors = [
   '#22c55e', '#3b82f6', '#ef4444', '#f97316', '#a855f7',
@@ -8,11 +8,11 @@ const colors = [
 ];
 
 export default function ColorPicker({ currentColor, onColorChange }) {
-  const { updateUser } = useAuth();
+  const { user, updateUser } = useAuth();
 
   const handleColor = async (color) => {
     try {
-      await api.patch('/api/users/color', { icon_color: color });
+      await updateUserColor(user.id, color);
       updateUser({ icon_color: color });
       if (onColorChange) onColorChange(color);
     } catch (err) {

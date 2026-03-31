@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import AirportSearch from './AirportSearch';
-import { api } from '../api';
+import { useAuth } from '../context/AuthContext';
+import { addFlight, addMultiLegTrip } from '../services/firestore';
 
 const airlines = [
   'Delta', 'United', 'American Airlines', 'Southwest', 'JetBlue',
@@ -115,6 +116,7 @@ const emptyLeg = () => ({
 });
 
 export default function AddFlightModal({ onClose, onFlightAdded, friends = [] }) {
+  const { user } = useAuth();
   const [isMultiLeg, setIsMultiLeg] = useState(false);
   const [legs, setLegs] = useState([emptyLeg()]);
   const [status, setStatus] = useState('booked');
@@ -178,7 +180,12 @@ export default function AddFlightModal({ onClose, onFlightAdded, friends = [] })
     setLoading(true);
 
     try {
-      const filteredCompanions = companions.filter(c => c.name);
+      const filteredCompanions = companions.filter(c => c.name).map(c => ({
+        name: c.name,
+        email: c.email || '',
+        seat_number: c.seat_number || '',
+        icon_color: c.fromFriend ? (friends.find(f => f.email === c.email)?.icon_color || '#888') : null,
+      }));
 
       if (isMultiLeg && legs.length > 1) {
         const legsPayload = legs.map(leg => ({
@@ -199,19 +206,11 @@ export default function AddFlightModal({ onClose, onFlightAdded, friends = [] })
           status,
         }));
 
-        const result = await api.post('/api/flights', {
-          legs: legsPayload,
-          companions: filteredCompanions,
-        });
-
-        if (Array.isArray(result)) {
-          result.forEach(f => onFlightAdded(f));
-        } else {
-          onFlightAdded(result);
-        }
+        const result = await addMultiLegTrip(user.id, legsPayload, filteredCompanions);
+        result.forEach(f => onFlightAdded(f));
       } else {
         const leg = legs[0];
-        const flight = await api.post('/api/flights', {
+        const flight = await addFlight(user.id, {
           airline: leg.airline,
           flight_number: leg.flight_number,
           origin_code: leg.origin.code,
@@ -223,7 +222,7 @@ export default function AddFlightModal({ onClose, onFlightAdded, friends = [] })
           destination_lat: leg.destination.lat,
           destination_lng: leg.destination.lng,
           seat_number: leg.seat_number,
-          cabin_class: leg.cabin_class,
+          cabin_class: leg.cabin_class || 'economy',
           notes: leg.notes,
           travel_date: leg.travel_date,
           status,
