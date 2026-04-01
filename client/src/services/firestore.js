@@ -1,6 +1,6 @@
 import {
   collection, doc, addDoc, getDoc, getDocs, setDoc, updateDoc, deleteDoc,
-  query, where, orderBy, serverTimestamp, or
+  query, where, serverTimestamp
 } from 'firebase/firestore';
 import { db } from '../firebase';
 
@@ -9,11 +9,12 @@ import { db } from '../firebase';
 export async function getFlights(userId) {
   const q = query(
     collection(db, 'flights'),
-    where('user_id', '==', userId),
-    orderBy('travel_date', 'desc')
+    where('user_id', '==', userId)
   );
   const snap = await getDocs(q);
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  return snap.docs
+    .map(d => ({ id: d.id, ...d.data() }))
+    .sort((a, b) => (b.travel_date || '').localeCompare(a.travel_date || ''));
 }
 
 export async function addFlight(userId, flightData) {
@@ -76,28 +77,26 @@ export async function updateFlightStatus(flightId, status) {
 export async function getFriendFlights(friendId) {
   const q = query(
     collection(db, 'flights'),
-    where('user_id', '==', friendId),
-    orderBy('travel_date', 'desc')
+    where('user_id', '==', friendId)
   );
   const snap = await getDocs(q);
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  return snap.docs
+    .map(d => ({ id: d.id, ...d.data() }))
+    .sort((a, b) => (b.travel_date || '').localeCompare(a.travel_date || ''));
 }
 
 // ── Friends ──
 
 export async function getFriends(userId) {
-  // Get all friendships where user is either side
-  const q = query(
-    collection(db, 'friendships'),
-    or(
-      where('user_id', '==', userId),
-      where('friend_id', '==', userId)
-    )
-  );
-  const snap = await getDocs(q);
+  // Two queries: one where user is requester, one where user is recipient
+  const [sentSnap, receivedSnap] = await Promise.all([
+    getDocs(query(collection(db, 'friendships'), where('user_id', '==', userId))),
+    getDocs(query(collection(db, 'friendships'), where('friend_id', '==', userId))),
+  ]);
+  const allDocs = [...sentSnap.docs, ...receivedSnap.docs];
 
   const friendships = [];
-  for (const d of snap.docs) {
+  for (const d of allDocs) {
     const data = d.data();
     const isRequester = data.user_id === userId;
     const otherUserId = isRequester ? data.friend_id : data.user_id;
@@ -131,15 +130,12 @@ export async function sendFriendRequest(userId, friendEmail) {
   if (friendId === userId) throw new Error("You can't add yourself");
 
   // Check for existing friendship
-  const existingQ = query(
-    collection(db, 'friendships'),
-    or(
-      where('user_id', '==', userId),
-      where('friend_id', '==', userId)
-    )
-  );
-  const existingSnap = await getDocs(existingQ);
-  const existing = existingSnap.docs.find(d => {
+  const [sentSnap, receivedSnap] = await Promise.all([
+    getDocs(query(collection(db, 'friendships'), where('user_id', '==', userId))),
+    getDocs(query(collection(db, 'friendships'), where('friend_id', '==', userId))),
+  ]);
+  const allExisting = [...sentSnap.docs, ...receivedSnap.docs];
+  const existing = allExisting.find(d => {
     const data = d.data();
     return (data.user_id === friendId || data.friend_id === friendId);
   });

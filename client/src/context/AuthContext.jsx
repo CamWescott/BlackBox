@@ -17,12 +17,20 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
-        // Get or wait for profile
-        let profile = await getUserProfile(firebaseUser.uid);
-        if (profile) {
-          setUser({ ...profile, id: firebaseUser.uid });
-        } else {
-          // Profile might not be created yet (race condition on register)
+        try {
+          const profile = await getUserProfile(firebaseUser.uid);
+          if (profile) {
+            setUser({ ...profile, id: firebaseUser.uid });
+          } else {
+            setUser({
+              id: firebaseUser.uid,
+              email: firebaseUser.email,
+              name: firebaseUser.displayName || '',
+              icon_color: '#22c55e',
+            });
+          }
+        } catch (err) {
+          console.error('Failed to load profile:', err);
           setUser({
             id: firebaseUser.uid,
             email: firebaseUser.email,
