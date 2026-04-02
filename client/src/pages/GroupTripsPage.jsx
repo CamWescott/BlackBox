@@ -16,23 +16,43 @@ const airlines = [
   'Turkish Airlines', 'Cathay Pacific', 'ANA', 'JAL', 'Other'
 ];
 
-function CreateTripModal({ onClose, onCreate }) {
+function CreateTripModal({ onClose, onCreate, friends }) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [selectedFriends, setSelectedFriends] = useState([]);
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e) => {
+  const toggleFriend = (friend) => {
+    if (selectedFriends.find(f => f.id === friend.id)) {
+      setSelectedFriends(selectedFriends.filter(f => f.id !== friend.id));
+    } else {
+      setSelectedFriends([...selectedFriends, friend]);
+    }
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!name.trim()) { setError('Please enter a trip name'); return; }
-    onCreate({ name: name.trim(), description, start_date: startDate, end_date: endDate });
-    onClose();
+    setLoading(true);
+    setError('');
+    try {
+      await onCreate(
+        { name: name.trim(), description, start_date: startDate, end_date: endDate },
+        selectedFriends.map(f => f.id)
+      );
+      onClose();
+    } catch (err) {
+      setError(err.message || 'Failed to create trip');
+      setLoading(false);
+    }
   };
 
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4" style={{ zIndex: 9999 }}>
-      <div className="bg-theme-primary border border-theme rounded-xl w-full max-w-md p-6">
+      <div className="bg-theme-primary border border-theme rounded-xl w-full max-w-md max-h-[90vh] overflow-y-auto p-6">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-lg font-bold text-theme-primary">New Group Trip</h2>
           <button onClick={onClose} className="text-theme-muted hover:text-theme-primary text-2xl">&times;</button>
@@ -61,9 +81,39 @@ function CreateTripModal({ onClose, onCreate }) {
                 className="w-full px-3 py-2 bg-theme-tertiary border border-theme rounded text-theme-primary text-sm focus:outline-none" />
             </div>
           </div>
-          <button type="submit" className="w-full py-2 font-semibold rounded-lg transition"
+
+          {/* Invite friends */}
+          {friends.length > 0 && (
+            <div>
+              <label className="block text-sm text-theme-muted mb-2">Invite Friends</label>
+              <div className="flex flex-wrap gap-2">
+                {friends.map(f => {
+                  const isSelected = selectedFriends.find(sf => sf.id === f.id);
+                  return (
+                    <button
+                      key={f.id}
+                      type="button"
+                      onClick={() => toggleFriend(f)}
+                      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-sm transition ${
+                        isSelected
+                          ? 'bg-theme-tertiary border-theme text-theme-primary'
+                          : 'bg-transparent border-theme text-theme-muted hover:text-theme-secondary'
+                      }`}
+                    >
+                      <div className="w-3 h-3 rounded-full" style={{ backgroundColor: f.icon_color }} />
+                      {f.name}
+                      {isSelected && <span className="text-xs">✓</span>}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          <button type="submit" disabled={loading}
+            className="w-full py-2 font-semibold rounded-lg transition disabled:opacity-50"
             style={{ backgroundColor: 'var(--text-primary)', color: 'var(--bg-primary)' }}>
-            Create Trip
+            {loading ? 'Creating...' : 'Create Trip'}
           </button>
         </form>
       </div>
@@ -79,18 +129,26 @@ function AddTripFlightModal({ onClose, onAdd }) {
   const [seatNumber, setSeatNumber] = useState('');
   const [travelDate, setTravelDate] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!origin || !destination) { setError('Select origin and destination'); return; }
     if (!airline || !flightNumber || !travelDate) { setError('Fill in all required fields'); return; }
-    onAdd({
-      airline, flight_number: flightNumber,
-      origin_code: origin.code, origin_name: origin.name, origin_lat: origin.lat, origin_lng: origin.lng,
-      destination_code: destination.code, destination_name: destination.name, destination_lat: destination.lat, destination_lng: destination.lng,
-      seat_number: seatNumber, cabin_class: 'economy', travel_date: travelDate, status: 'booked', notes: '',
-    });
-    onClose();
+    setLoading(true);
+    setError('');
+    try {
+      await onAdd({
+        airline, flight_number: flightNumber,
+        origin_code: origin.code, origin_name: origin.name, origin_lat: origin.lat, origin_lng: origin.lng,
+        destination_code: destination.code, destination_name: destination.name, destination_lat: destination.lat, destination_lng: destination.lng,
+        seat_number: seatNumber, cabin_class: 'economy', travel_date: travelDate, status: 'booked', notes: '',
+      });
+      onClose();
+    } catch (err) {
+      setError(err.message || 'Failed to add flight');
+      setLoading(false);
+    }
   };
 
   return (
@@ -133,9 +191,10 @@ function AddTripFlightModal({ onClose, onAdd }) {
                 className="w-full px-3 py-2 bg-theme-tertiary border border-theme rounded text-theme-primary text-sm placeholder-gray-500 focus:outline-none" />
             </div>
           </div>
-          <button type="submit" className="w-full py-2 font-semibold rounded-lg transition"
+          <button type="submit" disabled={loading}
+            className="w-full py-2 font-semibold rounded-lg transition disabled:opacity-50"
             style={{ backgroundColor: 'var(--text-primary)', color: 'var(--bg-primary)' }}>
-            Add Flight
+            {loading ? 'Adding...' : 'Add Flight'}
           </button>
         </form>
       </div>
@@ -165,19 +224,21 @@ export default function GroupTripsPage() {
       setTrips(tripData);
       setFriends(friendData.filter(f => f.status === 'accepted'));
     } catch (err) {
-      console.error(err);
+      console.error('Failed to load trips:', err);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleCreateTrip = async (data) => {
-    try {
-      const trip = await createGroupTrip(user.id, data);
-      setTrips([trip, ...trips]);
-    } catch (err) {
-      console.error(err);
+  const handleCreateTrip = async (data, friendIds) => {
+    const trip = await createGroupTrip(user.id, data);
+    // Invite selected friends
+    for (const friendId of friendIds) {
+      await addMemberToGroupTrip(trip.id, friendId);
     }
+    // Reload to get updated member list
+    const updated = await getGroupTrips(user.id);
+    setTrips(updated);
   };
 
   const handleDeleteTrip = async (tripId) => {
@@ -214,15 +275,11 @@ export default function GroupTripsPage() {
   };
 
   const handleAddFlight = async (tripId, flightData) => {
-    try {
-      const flight = await addFlightToGroupTrip(user.id, tripId, flightData);
-      setTripFlights(prev => ({
-        ...prev,
-        [tripId]: [...(prev[tripId] || []), flight],
-      }));
-    } catch (err) {
-      console.error(err);
-    }
+    const flight = await addFlightToGroupTrip(user.id, tripId, flightData);
+    setTripFlights(prev => ({
+      ...prev,
+      [tripId]: [...(prev[tripId] || []), flight],
+    }));
   };
 
   const handleInviteFriend = async (tripId, friendId) => {
@@ -234,7 +291,6 @@ export default function GroupTripsPage() {
         }
         return t;
       }));
-      // Reload member profiles
       const profile = await getUserProfile(friendId);
       if (profile) {
         setTripMembers(prev => ({
@@ -289,7 +345,6 @@ export default function GroupTripsPage() {
 
               return (
                 <div key={trip.id} className="bg-theme-secondary border border-theme-light rounded-xl overflow-hidden">
-                  {/* Trip header */}
                   <button
                     onClick={() => handleExpandTrip(trip)}
                     className="w-full p-4 text-left flex justify-between items-center hover:bg-theme-tertiary transition"
@@ -309,14 +364,11 @@ export default function GroupTripsPage() {
                     <span className="text-theme-muted text-lg">{isExpanded ? '▾' : '▸'}</span>
                   </button>
 
-                  {/* Expanded content */}
                   {isExpanded && (
                     <div className="border-t border-theme p-4 space-y-4">
                       {/* Members */}
                       <div>
-                        <div className="flex justify-between items-center mb-2">
-                          <h4 className="text-sm font-semibold text-theme-muted">Members</h4>
-                        </div>
+                        <h4 className="text-sm font-semibold text-theme-muted mb-2">Members</h4>
                         <div className="flex flex-wrap gap-2">
                           {(trip.member_ids || []).map(memberId => {
                             const member = members[memberId];
@@ -382,7 +434,6 @@ export default function GroupTripsPage() {
                         )}
                       </div>
 
-                      {/* Delete */}
                       {isOwner && (
                         <div className="pt-2 border-t border-theme">
                           <button
@@ -403,7 +454,11 @@ export default function GroupTripsPage() {
       </div>
 
       {showCreate && (
-        <CreateTripModal onClose={() => setShowCreate(false)} onCreate={handleCreateTrip} />
+        <CreateTripModal
+          onClose={() => setShowCreate(false)}
+          onCreate={handleCreateTrip}
+          friends={friends}
+        />
       )}
 
       {showAddFlight && (
