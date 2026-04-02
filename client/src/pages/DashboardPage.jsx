@@ -3,12 +3,13 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import {
   getFlights, deleteFlight, updateFlightStatus,
-  getFriends, sendFriendRequest, acceptFriendRequest, removeFriend,
+  getFriends, acceptFriendRequest, removeFriend,
 } from '../services/firestore';
 import GlobeMap from '../components/GlobeMap';
 import ColorPicker from '../components/ColorPicker';
 import AddFlightModal from '../components/AddFlightModal';
 import EditFlightModal from '../components/EditFlightModal';
+import FriendSearch from '../components/FriendSearch';
 import Header from '../components/Header';
 
 function exportToCSV(flights) {
@@ -43,8 +44,6 @@ export default function DashboardPage() {
   const [friends, setFriends] = useState([]);
   const [showAddFlight, setShowAddFlight] = useState(false);
   const [editingFlight, setEditingFlight] = useState(null);
-  const [friendEmail, setFriendEmail] = useState('');
-  const [friendMsg, setFriendMsg] = useState('');
   const [activeTab, setActiveTab] = useState('upcoming');
   const [searchQuery, setSearchQuery] = useState('');
   const [filterAirline, setFilterAirline] = useState('');
@@ -65,19 +64,6 @@ export default function DashboardPage() {
       setFriends(friendData);
     } catch (err) {
       console.error('Failed to load friends:', err);
-    }
-  };
-
-  const handleAddFriend = async (e) => {
-    e.preventDefault();
-    setFriendMsg('');
-    try {
-      await sendFriendRequest(user.id, friendEmail);
-      setFriendMsg('Friend request sent!');
-      setFriendEmail('');
-      loadData();
-    } catch (err) {
-      setFriendMsg(err.message);
     }
   };
 
@@ -160,17 +146,9 @@ export default function DashboardPage() {
 
           <div className="bg-theme-secondary border border-theme-light rounded-xl p-4 sm:p-5">
             <h3 className="text-theme-primary font-semibold mb-3">Travel Companions</h3>
-            <form onSubmit={handleAddFriend} className="flex gap-2 mb-3">
-              <input
-                type="email"
-                value={friendEmail}
-                onChange={(e) => setFriendEmail(e.target.value)}
-                placeholder="Add by email..."
-                className="flex-1 px-3 py-2 bg-theme-primary border border-theme rounded text-theme-primary text-sm placeholder-gray-500 focus:outline-none"
-              />
-              <button type="submit" className="px-3 py-2 bg-theme-primary text-theme-primary text-sm font-medium rounded border border-theme hover:bg-theme-tertiary">Add</button>
-            </form>
-            {friendMsg && <p className="text-xs text-theme-muted mb-2">{friendMsg}</p>}
+            <div className="mb-3">
+              <FriendSearch onRequestSent={loadData} />
+            </div>
 
             {pendingRequests.length > 0 && (
               <div className="mb-3">

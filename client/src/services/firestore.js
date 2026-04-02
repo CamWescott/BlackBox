@@ -124,6 +124,45 @@ export async function getFriends(userId) {
   return friendships;
 }
 
+export async function searchUsers(searchTerm, currentUserId) {
+  // Firestore doesn't support full-text search, so we fetch all users
+  // and filter client-side. For a large user base, consider Algolia/Typesense.
+  const snap = await getDocs(collection(db, 'users'));
+  const term = searchTerm.toLowerCase();
+  return snap.docs
+    .map(d => ({ id: d.id, ...d.data() }))
+    .filter(u =>
+      u.id !== currentUserId && (
+        (u.name || '').toLowerCase().includes(term) ||
+        (u.email || '').toLowerCase().includes(term)
+      )
+    )
+    .slice(0, 10);
+}
+
+export async function sendFriendRequestById(userId, friendId) {
+  if (friendId === userId) throw new Error("You can't add yourself");
+
+  // Check for existing friendship
+  const [sentSnap, receivedSnap] = await Promise.all([
+    getDocs(query(collection(db, 'friendships'), where('user_id', '==', userId))),
+    getDocs(query(collection(db, 'friendships'), where('friend_id', '==', userId))),
+  ]);
+  const allExisting = [...sentSnap.docs, ...receivedSnap.docs];
+  const existing = allExisting.find(d => {
+    const data = d.data();
+    return (data.user_id === friendId || data.friend_id === friendId);
+  });
+  if (existing) throw new Error('Friend request already exists');
+
+  await addDoc(collection(db, 'friendships'), {
+    user_id: userId,
+    friend_id: friendId,
+    status: 'pending',
+    created_at: serverTimestamp(),
+  });
+}
+
 export async function sendFriendRequest(userId, friendEmail) {
   // Find user by email (case-insensitive)
   const q = query(collection(db, 'users'), where('email', '==', friendEmail.toLowerCase()));
