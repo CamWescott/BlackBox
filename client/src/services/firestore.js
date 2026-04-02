@@ -66,6 +66,12 @@ export async function addMultiLegTrip(userId, legs, companions = []) {
   return created;
 }
 
+export async function updateFlight(flightId, updates) {
+  await updateDoc(doc(db, 'flights', flightId), updates);
+  const snap = await getDoc(doc(db, 'flights', flightId));
+  return { id: snap.id, ...snap.data() };
+}
+
 export async function deleteFlight(flightId) {
   await deleteDoc(doc(db, 'flights', flightId));
 }
@@ -176,6 +182,67 @@ export async function createUserProfile(userId, data) {
 
 export async function updateUserColor(userId, color) {
   await updateDoc(doc(db, 'users', userId), { icon_color: color });
+}
+
+// ── Group Trips ──
+
+export async function getGroupTrips(userId) {
+  // Trips where user is owner or member
+  const [ownedSnap, memberSnap] = await Promise.all([
+    getDocs(query(collection(db, 'group_trips'), where('owner_id', '==', userId))),
+    getDocs(query(collection(db, 'group_trips'), where('member_ids', 'array-contains', userId))),
+  ]);
+  const allDocs = new Map();
+  [...ownedSnap.docs, ...memberSnap.docs].forEach(d => allDocs.set(d.id, { id: d.id, ...d.data() }));
+  return [...allDocs.values()].sort((a, b) => (b.start_date || '').localeCompare(a.start_date || ''));
+}
+
+export async function createGroupTrip(userId, tripData) {
+  const docRef = await addDoc(collection(db, 'group_trips'), {
+    owner_id: userId,
+    name: tripData.name,
+    description: tripData.description || '',
+    start_date: tripData.start_date || '',
+    end_date: tripData.end_date || '',
+    member_ids: [userId],
+    created_at: serverTimestamp(),
+  });
+  const snap = await getDoc(docRef);
+  return { id: snap.id, ...snap.data() };
+}
+
+export async function addMemberToGroupTrip(tripId, userId) {
+  const tripDoc = await getDoc(doc(db, 'group_trips', tripId));
+  if (!tripDoc.exists()) throw new Error('Trip not found');
+  const data = tripDoc.data();
+  if (data.member_ids.includes(userId)) return;
+  await updateDoc(doc(db, 'group_trips', tripId), {
+    member_ids: [...data.member_ids, userId],
+  });
+}
+
+export async function getGroupTripFlights(tripId) {
+  const q = query(collection(db, 'flights'), where('group_trip_id', '==', tripId));
+  const snap = await getDocs(q);
+  return snap.docs
+    .map(d => ({ id: d.id, ...d.data() }))
+    .sort((a, b) => (a.travel_date || '').localeCompare(b.travel_date || ''));
+}
+
+export async function addFlightToGroupTrip(userId, tripId, flightData) {
+  const docRef = await addDoc(collection(db, 'flights'), {
+    ...flightData,
+    user_id: userId,
+    group_trip_id: tripId,
+    companions: flightData.companions || [],
+    created_at: serverTimestamp(),
+  });
+  const snap = await getDoc(docRef);
+  return { id: snap.id, ...snap.data() };
+}
+
+export async function deleteGroupTrip(tripId) {
+  await deleteDoc(doc(db, 'group_trips', tripId));
 }
 
 // ── Stats (computed client-side) ──

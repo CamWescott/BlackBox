@@ -8,6 +8,7 @@ import {
 import GlobeMap from '../components/GlobeMap';
 import ColorPicker from '../components/ColorPicker';
 import AddFlightModal from '../components/AddFlightModal';
+import EditFlightModal from '../components/EditFlightModal';
 import Header from '../components/Header';
 
 function exportToCSV(flights) {
@@ -41,6 +42,7 @@ export default function DashboardPage() {
   const [flights, setFlights] = useState([]);
   const [friends, setFriends] = useState([]);
   const [showAddFlight, setShowAddFlight] = useState(false);
+  const [editingFlight, setEditingFlight] = useState(null);
   const [friendEmail, setFriendEmail] = useState('');
   const [friendMsg, setFriendMsg] = useState('');
   const [activeTab, setActiveTab] = useState('upcoming');
@@ -320,6 +322,12 @@ export default function DashboardPage() {
                       </button>
                     )}
                     <button
+                      onClick={() => setEditingFlight(flight)}
+                      className="text-xs text-blue-400 hover:text-blue-300 border border-blue-800 px-2 py-1 rounded"
+                    >
+                      Edit
+                    </button>
+                    <button
                       onClick={() => handleDeleteFlight(flight.id)}
                       className="text-xs text-red-500 hover:text-red-400 border border-red-800 px-2 py-1 rounded"
                     >
@@ -344,6 +352,16 @@ export default function DashboardPage() {
             }
           }}
           friends={acceptedFriends}
+        />
+      )}
+
+      {editingFlight && (
+        <EditFlightModal
+          flight={editingFlight}
+          onClose={() => setEditingFlight(null)}
+          onFlightUpdated={(updated) => {
+            setFlights(flights.map(f => f.id === updated.id ? updated : f));
+          }}
         />
       )}
     </div>

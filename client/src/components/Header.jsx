@@ -2,20 +2,45 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 
+const navItems = [
+  { path: '/dashboard', label: 'Dashboard' },
+  { path: '/history', label: 'History' },
+  { path: '/feed', label: 'Feed' },
+  { path: '/trips', label: 'Trips' },
+];
+
 export default function Header() {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
 
-  const isDashboard = location.pathname === '/dashboard';
-
   return (
     <header className="border-b border-theme px-4 sm:px-6 py-3 sm:py-4 flex justify-between items-center bg-theme-secondary">
-      <h1 className="text-xl sm:text-2xl font-bold text-theme-primary tracking-widest">
+      <h1
+        className="text-xl sm:text-2xl font-bold text-theme-primary tracking-widest cursor-pointer"
+        onClick={() => navigate('/dashboard')}
+      >
         BLACK<span className="text-theme-muted">BOX</span>
       </h1>
-      <div className="flex items-center gap-2 sm:gap-4">
+      <div className="flex items-center gap-1 sm:gap-3">
+        {/* Nav links */}
+        <nav className="flex gap-1">
+          {navItems.map(item => (
+            <button
+              key={item.path}
+              onClick={() => navigate(item.path)}
+              className={`px-2 py-1 sm:px-3 sm:py-1.5 text-xs sm:text-sm rounded-lg transition ${
+                location.pathname === item.path
+                  ? 'bg-theme-tertiary text-theme-primary font-medium'
+                  : 'text-theme-muted hover:text-theme-secondary hover:bg-theme-tertiary'
+              }`}
+            >
+              {item.label}
+            </button>
+          ))}
+        </nav>
+
         {/* Theme toggle */}
         <button
           onClick={toggleTheme}
@@ -33,15 +58,7 @@ export default function Header() {
           )}
         </button>
 
-        {/* Nav button */}
-        <button
-          onClick={() => navigate(isDashboard ? '/history' : '/dashboard')}
-          className="px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm border border-theme text-theme-secondary rounded-lg hover:bg-theme-tertiary transition"
-        >
-          {isDashboard ? 'Travel History' : 'Dashboard'}
-        </button>
-
-        {/* User info - hide name on mobile */}
+        {/* User info - hide on mobile */}
         <div className="hidden sm:flex items-center gap-2">
           <div className="w-3 h-3 rounded-full" style={{ backgroundColor: user.icon_color }} />
           <span className="text-theme-secondary text-sm">{user.name}</span>
