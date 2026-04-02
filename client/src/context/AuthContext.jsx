@@ -18,23 +18,29 @@ export function AuthProvider({ children }) {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
         try {
-          const profile = await getUserProfile(firebaseUser.uid);
-          if (profile) {
-            setUser({ ...profile, id: firebaseUser.uid });
-          } else {
-            setUser({
-              id: firebaseUser.uid,
+          let profile = await getUserProfile(firebaseUser.uid);
+          if (!profile) {
+            // Profile missing (e.g. created before Firestore was ready) — create it now
+            await createUserProfile(firebaseUser.uid, {
+              name: firebaseUser.displayName || firebaseUser.email.split('@')[0],
               email: firebaseUser.email,
-              name: firebaseUser.displayName || '',
-              icon_color: '#22c55e',
             });
+            profile = await getUserProfile(firebaseUser.uid);
           }
+          setUser({ ...profile, id: firebaseUser.uid });
         } catch (err) {
           console.error('Failed to load profile:', err);
+          // Last resort fallback
+          try {
+            await createUserProfile(firebaseUser.uid, {
+              name: firebaseUser.email.split('@')[0],
+              email: firebaseUser.email,
+            });
+          } catch (_) { /* profile may already exist */ }
           setUser({
             id: firebaseUser.uid,
             email: firebaseUser.email,
-            name: firebaseUser.displayName || '',
+            name: firebaseUser.email.split('@')[0],
             icon_color: '#22c55e',
           });
         }

@@ -119,8 +119,8 @@ export async function getFriends(userId) {
 }
 
 export async function sendFriendRequest(userId, friendEmail) {
-  // Find user by email
-  const q = query(collection(db, 'users'), where('email', '==', friendEmail));
+  // Find user by email (case-insensitive)
+  const q = query(collection(db, 'users'), where('email', '==', friendEmail.toLowerCase()));
   const snap = await getDocs(q);
   if (snap.empty) throw new Error('No user found with that email');
 
@@ -168,7 +168,7 @@ export async function getUserProfile(userId) {
 export async function createUserProfile(userId, data) {
   await setDoc(doc(db, 'users', userId), {
     name: data.name,
-    email: data.email,
+    email: data.email.toLowerCase(),
     icon_color: '#22c55e',
     created_at: serverTimestamp(),
   });
