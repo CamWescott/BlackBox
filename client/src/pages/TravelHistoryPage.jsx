@@ -122,17 +122,67 @@ export default function TravelHistoryPage() {
     }
   };
 
-  const displayFlights = allFlights.map(f => {
-    if (f._friendColor) {
-      // This is a friend's flight — use their color as the primary color
-      // and don't add the current user's color
+  // Merge flights: detect matching routes (same origin+dest+date) among friends
+  // and combine their colors into one multi-color line
+  const displayFlights = (() => {
+    const myFlightsList = allFlights.filter(f => !f._friendId);
+    const friendFlightsList = allFlights.filter(f => f._friendId);
+
+    // Group friend flights by route+date key
+    const friendGroups = {};
+    friendFlightsList.forEach(f => {
+      const key = `${f.origin_code}-${f.destination_code}-${f.travel_date}`;
+      if (!friendGroups[key]) friendGroups[key] = [];
+      friendGroups[key].push(f);
+    });
+
+    // Check if user was also on that route+date
+    const myRouteKeys = new Set(
+      myFlightsList.map(f => `${f.origin_code}-${f.destination_code}-${f.travel_date}`)
+    );
+
+    const mergedFriendFlights = Object.values(friendGroups).map(group => {
+      const base = group[0];
+      const colors = group.map(f => f._friendColor).filter(Boolean);
+      const uniqueColors = [...new Set(colors)];
+      const userWasOnFlight = myRouteKeys.has(
+        `${base.origin_code}-${base.destination_code}-${base.travel_date}`
+      );
+
+      if (userWasOnFlight) {
+        // User was on this flight too — it's already in myFlightsList
+        // Just add friend colors as companions to that flight
+        return null;
+      }
+
       return {
-        ...f,
-        _overrideColor: f._friendColor,
+        ...base,
+        _overrideColors: uniqueColors,
+        _mergedFriendNames: group.map(f => f._friendName).filter(Boolean),
       };
-    }
-    return f;
-  });
+    }).filter(Boolean);
+
+    // For user's own flights, add friend companion colors if friends were on the same route+date
+    const enhancedMyFlights = myFlightsList.map(f => {
+      const key = `${f.origin_code}-${f.destination_code}-${f.travel_date}`;
+      const matchingFriends = friendGroups[key] || [];
+      if (matchingFriends.length > 0) {
+        return {
+          ...f,
+          companions: [
+            ...(f.companions || []),
+            ...matchingFriends.map(ff => ({
+              icon_color: ff._friendColor,
+              user_name: ff._friendName,
+            })),
+          ],
+        };
+      }
+      return f;
+    });
+
+    return [...enhancedMyFlights, ...mergedFriendFlights];
+  })();
 
   if (loading) {
     return (
