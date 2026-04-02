@@ -128,7 +128,7 @@ export default function FeedPage() {
         {/* Travel Compatibility Section */}
         {friends.length > 0 && (
           <div className="bg-theme-secondary border border-theme-light rounded-xl p-4">
-            <h3 className="text-sm font-semibold text-theme-muted mb-3">Travel Compatibility</h3>
+            <h3 className="text-sm font-semibold text-theme-muted mb-3">Compare Travels</h3>
             <div className="flex flex-wrap gap-2 mb-4">
               {friends.map(f => (
                 <button
