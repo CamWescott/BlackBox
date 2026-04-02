@@ -66,9 +66,10 @@ export default function GlobeMap({ flights = [], height = '400px', showFlags = f
 
     if (showPaths) {
       displayFlights.forEach(f => {
-        // Collect all colors for this flight (user + companions)
-        const colors = [userColor];
-        if (f.companions) {
+        // Collect colors: if this is a friend's flight, use their color only
+        // Otherwise use user's color + any companion colors
+        const colors = f._overrideColor ? [f._overrideColor] : [userColor];
+        if (!f._overrideColor && f.companions) {
           f.companions.forEach(c => {
             if (c.icon_color && !colors.includes(c.icon_color)) {
               colors.push(c.icon_color);

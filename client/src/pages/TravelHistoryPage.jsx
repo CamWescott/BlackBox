@@ -124,12 +124,11 @@ export default function TravelHistoryPage() {
 
   const displayFlights = allFlights.map(f => {
     if (f._friendColor) {
+      // This is a friend's flight — use their color as the primary color
+      // and don't add the current user's color
       return {
         ...f,
-        companions: [
-          ...(f.companions || []),
-          { icon_color: f._friendColor, user_name: f._friendName }
-        ]
+        _overrideColor: f._friendColor,
       };
     }
     return f;
