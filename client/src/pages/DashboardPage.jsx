@@ -6,7 +6,6 @@ import {
   getFriends, acceptFriendRequest, removeFriend,
 } from '../services/firestore';
 import GlobeMap from '../components/GlobeMap';
-import ColorPicker from '../components/ColorPicker';
 import AddFlightModal from '../components/AddFlightModal';
 import EditFlightModal from '../components/EditFlightModal';
 import FriendSearch from '../components/FriendSearch';
@@ -146,7 +145,8 @@ export default function DashboardPage() {
               <p><span className="text-theme-muted">Flights:</span> <span className="text-theme-primary">{flights.length}</span></p>
             </div>
             <div className="mt-4">
-              <ColorPicker currentColor={user.icon_color} />
+              <label className="block text-sm text-theme-muted mb-2">Your Icon Color</label>
+              <div className="w-8 h-8 rounded-full border-2 border-theme" style={{ backgroundColor: user.icon_color }} />
             </div>
           </div>
 

@@ -2,7 +2,13 @@ import { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import { updateUserName } from '../services/firestore';
+import { updateUserName, updateUserColor } from '../services/firestore';
+
+const iconColors = [
+  '#22c55e', '#3b82f6', '#ef4444', '#f97316', '#a855f7',
+  '#ec4899', '#14b8a6', '#eab308', '#06b6d4', '#f43f5e',
+  '#8b5cf6', '#10b981', '#64748b', '#ffffff',
+];
 
 const navItems = [
   { path: '/dashboard', label: 'Dashboard' },
@@ -161,6 +167,31 @@ export default function Header() {
                     <span>{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
                   </div>
                 </button>
+
+                {/* Icon Color */}
+                <div className="px-3 py-2.5">
+                  <div className="flex items-center gap-3 mb-2">
+                    <svg className="w-4 h-4 text-theme-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
+                    </svg>
+                    <span className="text-sm text-theme-secondary">Icon Color</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5 ml-7">
+                    {iconColors.map(c => (
+                      <button
+                        key={c}
+                        onClick={async () => {
+                          await updateUserColor(user.id, c);
+                          updateUser({ icon_color: c });
+                        }}
+                        className={`w-5 h-5 rounded-full border-2 transition ${
+                          user.icon_color === c ? 'scale-110 border-white' : 'border-transparent hover:border-theme'
+                        }`}
+                        style={{ backgroundColor: c }}
+                      />
+                    ))}
+                  </div>
+                </div>
 
                 {/* Logout */}
                 <button
