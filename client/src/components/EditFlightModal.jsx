@@ -1,13 +1,20 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import AirportSearch from './AirportSearch';
 import { updateFlight } from '../services/firestore';
 
 const airlines = [
-  'Delta', 'United', 'American Airlines', 'Southwest', 'JetBlue',
-  'Alaska Airlines', 'Spirit', 'Frontier', 'Hawaiian Airlines',
-  'British Airways', 'Lufthansa', 'Air France', 'Emirates',
-  'Qatar Airways', 'Singapore Airlines', 'Qantas', 'KLM',
-  'Turkish Airlines', 'Cathay Pacific', 'ANA', 'JAL', 'Other'
+  'Aer Lingus', 'Aeromexico', 'Air Canada', 'Air France', 'Air India',
+  'Air New Zealand', 'Alaska Airlines', 'Allegiant Air', 'American Airlines',
+  'ANA', 'Avianca', 'Breeze Airways', 'British Airways', 'Cape Air',
+  'Cathay Pacific', 'Copa Airlines', 'Delta', 'EasyJet', 'Emirates',
+  'Ethiopian Airlines', 'Etihad Airways', 'EVA Air', 'Finnair',
+  'Frontier', 'Hawaiian Airlines', 'Iberia', 'Icelandair', 'ITA Airways',
+  'JAL', 'JetBlue', 'KLM', 'Korean Air', 'LATAM', 'LOT Polish Airlines',
+  'Lufthansa', 'Norwegian', 'Qantas', 'Qatar Airways', 'Ryanair',
+  'SAS Scandinavian', 'Singapore Airlines', 'Southwest', 'Spirit',
+  'Sun Country', 'Swiss International', 'TAP Air Portugal',
+  'Turkish Airlines', 'United', 'Virgin Atlantic', 'Vueling',
+  'WestJet', 'Wizz Air',
 ];
 
 const cabinClasses = [
@@ -16,6 +23,52 @@ const cabinClasses = [
   { value: 'business', label: 'Business' },
   { value: 'first', label: 'First' },
 ];
+
+function AirlineInput({ value, onChange }) {
+  const [query, setQuery] = useState(value || '');
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  const filtered = query
+    ? airlines.filter(a => a.toLowerCase().includes(query.toLowerCase())).slice(0, 8)
+    : airlines.slice(0, 8);
+
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  return (
+    <div ref={ref} className="relative">
+      <label className="block text-sm text-theme-muted mb-1">Airline</label>
+      <input
+        type="text"
+        value={query}
+        onChange={e => { setQuery(e.target.value); onChange(e.target.value); setOpen(true); }}
+        onFocus={() => setOpen(true)}
+        placeholder="Type or search..."
+        required
+        className="w-full px-3 py-2 bg-theme-tertiary border border-theme rounded text-theme-primary text-sm placeholder-gray-500 focus:outline-none"
+      />
+      {open && filtered.length > 0 && (
+        <div className="absolute w-full mt-1 bg-theme-secondary border border-theme rounded shadow-xl max-h-40 overflow-y-auto" style={{ zIndex: 10000 }}>
+          {filtered.map(a => (
+            <button
+              key={a}
+              type="button"
+              onClick={() => { setQuery(a); onChange(a); setOpen(false); }}
+              className="w-full text-left px-3 py-2 hover:bg-theme-tertiary text-sm text-theme-primary"
+            >
+              {a}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function EditFlightModal({ flight, onClose, onFlightUpdated }) {
   const [airline, setAirline] = useState(flight.airline);
@@ -35,6 +88,13 @@ export default function EditFlightModal({ flight, onClose, onFlightUpdated }) {
   const [notes, setNotes] = useState(flight.notes || '');
   const [travelDate, setTravelDate] = useState(flight.travel_date);
   const [status, setStatus] = useState(flight.status);
+  const [aircraft, setAircraft] = useState(flight.aircraft || '');
+  const [departureTerminal, setDepartureTerminal] = useState(flight.departure_terminal || '');
+  const [departureGate, setDepartureGate] = useState(flight.departure_gate || '');
+  const [departureTime, setDepartureTime] = useState(flight.departure_time || '');
+  const [arrivalTerminal, setArrivalTerminal] = useState(flight.arrival_terminal || '');
+  const [arrivalGate, setArrivalGate] = useState(flight.arrival_gate || '');
+  const [arrivalTime, setArrivalTime] = useState(flight.arrival_time || '');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -69,6 +129,13 @@ export default function EditFlightModal({ flight, onClose, onFlightUpdated }) {
         notes,
         travel_date: travelDate,
         status,
+        aircraft,
+        departure_terminal: departureTerminal,
+        departure_gate: departureGate,
+        departure_time: departureTime,
+        arrival_terminal: arrivalTerminal,
+        arrival_gate: arrivalGate,
+        arrival_time: arrivalTime,
       });
       onFlightUpdated(updated);
       onClose();
@@ -93,18 +160,7 @@ export default function EditFlightModal({ flight, onClose, onFlightUpdated }) {
           )}
 
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-sm text-theme-muted mb-1">Airline</label>
-              <select
-                value={airline}
-                onChange={(e) => setAirline(e.target.value)}
-                required
-                className="w-full px-3 py-2 bg-theme-tertiary border border-theme rounded text-theme-primary text-sm focus:outline-none"
-              >
-                <option value="">Select...</option>
-                {airlines.map(a => <option key={a} value={a}>{a}</option>)}
-              </select>
-            </div>
+            <AirlineInput value={airline} onChange={setAirline} />
             <div>
               <label className="block text-sm text-theme-muted mb-1">Flight Number</label>
               <input
@@ -122,7 +178,107 @@ export default function EditFlightModal({ flight, onClose, onFlightUpdated }) {
             <AirportSearch label="Destination" value={destination} onChange={setDestination} placeholder="To..." />
           </div>
 
-          <div className="grid grid-cols-3 gap-3">
+          <div>
+            <label className="block text-sm text-theme-muted mb-1">Date</label>
+            <input
+              type="date"
+              value={travelDate}
+              onChange={(e) => setTravelDate(e.target.value)}
+              required
+              className="w-full px-3 py-2 bg-theme-tertiary border border-theme rounded text-theme-primary text-sm focus:outline-none"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm text-theme-muted mb-1">Aircraft</label>
+              <input
+                type="text"
+                value={aircraft}
+                onChange={(e) => setAircraft(e.target.value)}
+                placeholder="e.g. Boeing 737-800"
+                className="w-full px-3 py-2 bg-theme-tertiary border border-theme rounded text-theme-primary text-sm placeholder-gray-500 focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-sm text-theme-muted mb-1">Distance</label>
+              <input
+                type="text"
+                value={flight.distance_miles ? `${Math.round(flight.distance_miles)} mi` : ''}
+                readOnly
+                placeholder="Via Flight Search"
+                className="w-full px-3 py-2 bg-theme-tertiary border border-theme rounded text-theme-muted text-sm placeholder-gray-500 focus:outline-none"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm text-theme-muted mb-1">Departure Time</label>
+              <input
+                type="text"
+                value={departureTime}
+                onChange={(e) => setDepartureTime(e.target.value)}
+                placeholder="e.g. 08:30"
+                className="w-full px-3 py-2 bg-theme-tertiary border border-theme rounded text-theme-primary text-sm placeholder-gray-500 focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-sm text-theme-muted mb-1">Arrival Time</label>
+              <input
+                type="text"
+                value={arrivalTime}
+                onChange={(e) => setArrivalTime(e.target.value)}
+                placeholder="e.g. 11:45"
+                className="w-full px-3 py-2 bg-theme-tertiary border border-theme rounded text-theme-primary text-sm placeholder-gray-500 focus:outline-none"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-4 gap-3">
+            <div>
+              <label className="block text-sm text-theme-muted mb-1">Dep Terminal</label>
+              <input
+                type="text"
+                value={departureTerminal}
+                onChange={(e) => setDepartureTerminal(e.target.value)}
+                placeholder="T2"
+                className="w-full px-3 py-2 bg-theme-tertiary border border-theme rounded text-theme-primary text-sm placeholder-gray-500 focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-sm text-theme-muted mb-1">Dep Gate</label>
+              <input
+                type="text"
+                value={departureGate}
+                onChange={(e) => setDepartureGate(e.target.value)}
+                placeholder="B42"
+                className="w-full px-3 py-2 bg-theme-tertiary border border-theme rounded text-theme-primary text-sm placeholder-gray-500 focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-sm text-theme-muted mb-1">Arr Terminal</label>
+              <input
+                type="text"
+                value={arrivalTerminal}
+                onChange={(e) => setArrivalTerminal(e.target.value)}
+                placeholder="T1"
+                className="w-full px-3 py-2 bg-theme-tertiary border border-theme rounded text-theme-primary text-sm placeholder-gray-500 focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-sm text-theme-muted mb-1">Arr Gate</label>
+              <input
+                type="text"
+                value={arrivalGate}
+                onChange={(e) => setArrivalGate(e.target.value)}
+                placeholder="C12"
+                className="w-full px-3 py-2 bg-theme-tertiary border border-theme rounded text-theme-primary text-sm placeholder-gray-500 focus:outline-none"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-sm text-theme-muted mb-1">Seat</label>
               <input
@@ -142,16 +298,6 @@ export default function EditFlightModal({ flight, onClose, onFlightUpdated }) {
               >
                 {cabinClasses.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
               </select>
-            </div>
-            <div>
-              <label className="block text-sm text-theme-muted mb-1">Date</label>
-              <input
-                type="date"
-                value={travelDate}
-                onChange={(e) => setTravelDate(e.target.value)}
-                required
-                className="w-full px-3 py-2 bg-theme-tertiary border border-theme rounded text-theme-primary text-sm focus:outline-none"
-              />
             </div>
           </div>
 

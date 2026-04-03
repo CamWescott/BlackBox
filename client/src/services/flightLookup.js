@@ -110,6 +110,15 @@ export async function lookupFlight(flightNumber, date) {
       lng: arr.airport.location?.lon || 0,
     },
     airline: flight.airline?.name || null,
+    aircraft: flight.aircraft?.model || '',
+    departure_terminal: dep.terminal || '',
+    departure_gate: dep.gate || '',
+    departure_time: dep.scheduledTime?.local || dep.scheduledTime?.utc || '',
+    arrival_terminal: arr.terminal || '',
+    arrival_gate: arr.gate || '',
+    arrival_time: arr.scheduledTime?.local || arr.scheduledTime?.utc || '',
+    distance_miles: flight.greatCircleDistance?.mile || null,
+    distance_km: flight.greatCircleDistance?.km || null,
   };
 }
 

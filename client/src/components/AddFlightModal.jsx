@@ -96,7 +96,17 @@ function LegForm({ leg, index, onChange, onRemove, showRemove }) {
         update('origin', result.origin);
         update('destination', result.destination);
         if (result.airline) update('airline', result.airline);
-        setLookupMsg(`Found: ${result.origin.code} → ${result.destination.code}`);
+        if (result.aircraft) update('aircraft', result.aircraft);
+        if (result.departure_terminal) update('departure_terminal', result.departure_terminal);
+        if (result.departure_gate) update('departure_gate', result.departure_gate);
+        if (result.departure_time) update('departure_time', result.departure_time);
+        if (result.arrival_terminal) update('arrival_terminal', result.arrival_terminal);
+        if (result.arrival_gate) update('arrival_gate', result.arrival_gate);
+        if (result.arrival_time) update('arrival_time', result.arrival_time);
+        if (result.distance_miles) update('distance_miles', result.distance_miles);
+        if (result.distance_km) update('distance_km', result.distance_km);
+        const extras = [result.aircraft, result.distance_miles ? `${Math.round(result.distance_miles)} mi` : ''].filter(Boolean).join(' · ');
+        setLookupMsg(`Found: ${result.origin.code} → ${result.destination.code}${extras ? ' · ' + extras : ''}`);
       } else {
         setLookupMsg('Flight not found — try entering airports manually');
       }
@@ -178,6 +188,96 @@ function LegForm({ leg, index, onChange, onRemove, showRemove }) {
         <AirportSearch label="Destination" value={leg.destination} onChange={(v) => update('destination', v)} placeholder="To..." />
       </div>
 
+      {/* Auto-filled flight info (editable) */}
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-sm text-theme-muted mb-1">Aircraft</label>
+          <input
+            type="text"
+            value={leg.aircraft}
+            onChange={(e) => update('aircraft', e.target.value)}
+            placeholder="e.g. Boeing 737-800"
+            className="w-full px-3 py-2 bg-theme-tertiary border border-theme rounded text-theme-primary text-sm placeholder-gray-500 focus:outline-none"
+          />
+        </div>
+        <div>
+          <label className="block text-sm text-theme-muted mb-1">Distance</label>
+          <input
+            type="text"
+            value={leg.distance_miles ? `${Math.round(leg.distance_miles)} mi` : ''}
+            readOnly
+            placeholder="Via Flight Search"
+            className="w-full px-3 py-2 bg-theme-tertiary border border-theme rounded text-theme-muted text-sm placeholder-gray-500 focus:outline-none"
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-sm text-theme-muted mb-1">Departure Time</label>
+          <input
+            type="text"
+            value={leg.departure_time}
+            onChange={(e) => update('departure_time', e.target.value)}
+            placeholder="e.g. 08:30"
+            className="w-full px-3 py-2 bg-theme-tertiary border border-theme rounded text-theme-primary text-sm placeholder-gray-500 focus:outline-none"
+          />
+        </div>
+        <div>
+          <label className="block text-sm text-theme-muted mb-1">Arrival Time</label>
+          <input
+            type="text"
+            value={leg.arrival_time}
+            onChange={(e) => update('arrival_time', e.target.value)}
+            placeholder="e.g. 11:45"
+            className="w-full px-3 py-2 bg-theme-tertiary border border-theme rounded text-theme-primary text-sm placeholder-gray-500 focus:outline-none"
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-4 gap-3">
+        <div>
+          <label className="block text-sm text-theme-muted mb-1">Dep Terminal</label>
+          <input
+            type="text"
+            value={leg.departure_terminal}
+            onChange={(e) => update('departure_terminal', e.target.value)}
+            placeholder="T2"
+            className="w-full px-3 py-2 bg-theme-tertiary border border-theme rounded text-theme-primary text-sm placeholder-gray-500 focus:outline-none"
+          />
+        </div>
+        <div>
+          <label className="block text-sm text-theme-muted mb-1">Dep Gate</label>
+          <input
+            type="text"
+            value={leg.departure_gate}
+            onChange={(e) => update('departure_gate', e.target.value)}
+            placeholder="B42"
+            className="w-full px-3 py-2 bg-theme-tertiary border border-theme rounded text-theme-primary text-sm placeholder-gray-500 focus:outline-none"
+          />
+        </div>
+        <div>
+          <label className="block text-sm text-theme-muted mb-1">Arr Terminal</label>
+          <input
+            type="text"
+            value={leg.arrival_terminal}
+            onChange={(e) => update('arrival_terminal', e.target.value)}
+            placeholder="T1"
+            className="w-full px-3 py-2 bg-theme-tertiary border border-theme rounded text-theme-primary text-sm placeholder-gray-500 focus:outline-none"
+          />
+        </div>
+        <div>
+          <label className="block text-sm text-theme-muted mb-1">Arr Gate</label>
+          <input
+            type="text"
+            value={leg.arrival_gate}
+            onChange={(e) => update('arrival_gate', e.target.value)}
+            placeholder="C12"
+            className="w-full px-3 py-2 bg-theme-tertiary border border-theme rounded text-theme-primary text-sm placeholder-gray-500 focus:outline-none"
+          />
+        </div>
+      </div>
+
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="block text-sm text-theme-muted mb-1">Seat</label>
@@ -218,6 +318,9 @@ function LegForm({ leg, index, onChange, onRemove, showRemove }) {
 const emptyLeg = () => ({
   airline: '', flight_number: '', origin: null, destination: null,
   seat_number: '', cabin_class: 'economy', notes: '', travel_date: '',
+  aircraft: '', departure_terminal: '', departure_gate: '', departure_time: '',
+  arrival_terminal: '', arrival_gate: '', arrival_time: '',
+  distance_miles: null, distance_km: null,
 });
 
 export default function AddFlightModal({ onClose, onFlightAdded, friends = [] }) {
@@ -294,22 +397,35 @@ export default function AddFlightModal({ onClose, onFlightAdded, friends = [] })
         icon_color: c.fromFriend ? (friends.find(f => f.email === c.email)?.icon_color || '#888') : null,
       }));
 
+      const buildFlightPayload = (leg) => ({
+        airline: leg.airline,
+        flight_number: leg.flight_number,
+        origin_code: leg.origin.code,
+        origin_name: leg.origin.name,
+        origin_lat: leg.origin.lat,
+        origin_lng: leg.origin.lng,
+        destination_code: leg.destination.code,
+        destination_name: leg.destination.name,
+        destination_lat: leg.destination.lat,
+        destination_lng: leg.destination.lng,
+        seat_number: leg.seat_number,
+        cabin_class: leg.cabin_class || 'economy',
+        notes: leg.notes,
+        travel_date: leg.travel_date,
+        aircraft: leg.aircraft || '',
+        departure_terminal: leg.departure_terminal || '',
+        departure_gate: leg.departure_gate || '',
+        departure_time: leg.departure_time || '',
+        arrival_terminal: leg.arrival_terminal || '',
+        arrival_gate: leg.arrival_gate || '',
+        arrival_time: leg.arrival_time || '',
+        distance_miles: leg.distance_miles || null,
+        distance_km: leg.distance_km || null,
+      });
+
       if (isMultiLeg && legs.length > 1) {
         const legsPayload = legs.map(leg => ({
-          airline: leg.airline,
-          flight_number: leg.flight_number,
-          origin_code: leg.origin.code,
-          origin_name: leg.origin.name,
-          origin_lat: leg.origin.lat,
-          origin_lng: leg.origin.lng,
-          destination_code: leg.destination.code,
-          destination_name: leg.destination.name,
-          destination_lat: leg.destination.lat,
-          destination_lng: leg.destination.lng,
-          seat_number: leg.seat_number,
-          cabin_class: leg.cabin_class,
-          notes: leg.notes,
-          travel_date: leg.travel_date,
+          ...buildFlightPayload(leg),
           status,
         }));
 
@@ -318,20 +434,7 @@ export default function AddFlightModal({ onClose, onFlightAdded, friends = [] })
       } else {
         const leg = legs[0];
         const flight = await addFlight(user.id, {
-          airline: leg.airline,
-          flight_number: leg.flight_number,
-          origin_code: leg.origin.code,
-          origin_name: leg.origin.name,
-          origin_lat: leg.origin.lat,
-          origin_lng: leg.origin.lng,
-          destination_code: leg.destination.code,
-          destination_name: leg.destination.name,
-          destination_lat: leg.destination.lat,
-          destination_lng: leg.destination.lng,
-          seat_number: leg.seat_number,
-          cabin_class: leg.cabin_class || 'economy',
-          notes: leg.notes,
-          travel_date: leg.travel_date,
+          ...buildFlightPayload(leg),
           status,
           companions: filteredCompanions,
         });

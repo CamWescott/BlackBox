@@ -13,13 +13,19 @@ import FriendSearch from '../components/FriendSearch';
 import Header from '../components/Header';
 
 function exportToCSV(flights) {
-  const headers = ['Date','Airline','Flight','Origin','Destination','Seat','Class','Notes','Status','Companions'];
+  const headers = ['Date','Airline','Flight','Origin','Destination','Aircraft','Distance (mi)','Departure','Arrival','Terminal','Gate','Seat','Class','Notes','Status','Companions'];
   const rows = flights.map(f => [
     f.travel_date,
     f.airline,
     f.flight_number,
     f.origin_code,
     f.destination_code,
+    f.aircraft || '',
+    f.distance_miles ? Math.round(f.distance_miles) : '',
+    f.departure_time || '',
+    f.arrival_time || '',
+    f.departure_terminal || '',
+    f.departure_gate || '',
     f.seat_number || '',
     (f.cabin_class || 'economy').replace('_', ' '),
     (f.notes || '').replace(/"/g, '""'),
@@ -274,6 +280,24 @@ export default function DashboardPage() {
                       <span className="text-theme-faint">→</span>
                       <span className="text-theme-primary font-mono">{flight.destination_code}</span>
                       <span className="text-theme-muted ml-2 text-xs sm:text-sm">{flight.travel_date}</span>
+                      {flight.departure_time && (
+                        <span className="text-xs text-theme-faint">{flight.departure_time.slice(-5) || flight.departure_time}</span>
+                      )}
+                    </div>
+                    {/* Extra flight details */}
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                      {flight.aircraft && (
+                        <span className="text-xs bg-theme-tertiary text-theme-muted px-2 py-0.5 rounded">{flight.aircraft}</span>
+                      )}
+                      {flight.distance_miles && (
+                        <span className="text-xs bg-theme-tertiary text-theme-muted px-2 py-0.5 rounded">{Math.round(flight.distance_miles)} mi</span>
+                      )}
+                      {flight.departure_terminal && (
+                        <span className="text-xs text-theme-faint">Terminal {flight.departure_terminal}</span>
+                      )}
+                      {flight.departure_gate && (
+                        <span className="text-xs text-theme-faint">Gate {flight.departure_gate}</span>
+                      )}
                     </div>
                     {flight.notes && (
                       <p className="text-xs text-theme-muted italic mt-1 truncate">{flight.notes}</p>
