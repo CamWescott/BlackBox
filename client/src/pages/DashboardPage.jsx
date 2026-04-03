@@ -4,6 +4,7 @@ import { useTheme } from '../context/ThemeContext';
 import {
   getFlights, deleteFlight, updateFlightStatus,
   getFriends, acceptFriendRequest, removeFriend,
+  updateUserName,
 } from '../services/firestore';
 import GlobeMap from '../components/GlobeMap';
 import ColorPicker from '../components/ColorPicker';
@@ -37,8 +38,49 @@ function exportToCSV(flights) {
   URL.revokeObjectURL(url);
 }
 
+function EditableName({ name, userId, onUpdate }) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(name);
+  const [saving, setSaving] = useState(false);
+
+  const save = async () => {
+    if (!value.trim() || value.trim() === name) { setEditing(false); setValue(name); return; }
+    setSaving(true);
+    await updateUserName(userId, value.trim());
+    onUpdate(value.trim());
+    setSaving(false);
+    setEditing(false);
+  };
+
+  if (editing) {
+    return (
+      <div className="flex items-center gap-2">
+        <span className="text-theme-muted">Name:</span>
+        <input
+          autoFocus
+          value={value}
+          onChange={e => setValue(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') save(); if (e.key === 'Escape') { setEditing(false); setValue(name); } }}
+          className="px-2 py-0.5 bg-theme-tertiary border border-theme rounded text-theme-primary text-sm w-36 focus:outline-none"
+        />
+        <button onClick={save} disabled={saving} className="text-xs text-theme-muted hover:text-theme-primary">
+          {saving ? '...' : 'Save'}
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <p>
+      <span className="text-theme-muted">Name:</span>{' '}
+      <span className="text-theme-primary">{name}</span>
+      <button onClick={() => setEditing(true)} className="ml-2 text-xs text-theme-faint hover:text-theme-primary">edit</button>
+    </p>
+  );
+}
+
 export default function DashboardPage() {
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
   const { theme } = useTheme();
   const [flights, setFlights] = useState([]);
   const [friends, setFriends] = useState([]);
@@ -135,7 +177,7 @@ export default function DashboardPage() {
           <div className="bg-theme-secondary border border-theme-light rounded-xl p-4 sm:p-5">
             <h3 className="text-theme-primary font-semibold mb-3">Profile</h3>
             <div className="space-y-2 text-sm">
-              <p><span className="text-theme-muted">Name:</span> <span className="text-theme-primary">{user.name}</span></p>
+              <EditableName name={user.name} userId={user.id} onUpdate={(name) => updateUser({ name })} />
               <p><span className="text-theme-muted">Email:</span> <span className="text-theme-primary">{user.email}</span></p>
               <p><span className="text-theme-muted">Flights:</span> <span className="text-theme-primary">{flights.length}</span></p>
             </div>

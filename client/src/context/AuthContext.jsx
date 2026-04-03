@@ -8,7 +8,7 @@ import {
   signInWithPopup,
 } from 'firebase/auth';
 import { auth } from '../firebase';
-import { getUserProfile, createUserProfile } from '../services/firestore';
+import { getUserProfile, createUserProfile, updateUserName } from '../services/firestore';
 
 const AuthContext = createContext(null);
 
@@ -22,17 +22,25 @@ export function AuthProvider({ children }) {
         try {
           let profile = await getUserProfile(firebaseUser.uid);
           if (!profile) {
-            // Profile missing (e.g. created before Firestore was ready) — create it now
+            // New user — create a placeholder profile and flag for name setup
+            const placeholderName = firebaseUser.displayName || firebaseUser.email.split('@')[0];
             await createUserProfile(firebaseUser.uid, {
-              name: firebaseUser.displayName || firebaseUser.email.split('@')[0],
+              name: placeholderName,
               email: firebaseUser.email,
             });
             profile = await getUserProfile(firebaseUser.uid);
+            // If this was a Google sign-in (no password provider), prompt for name
+            const isGoogleOnly = firebaseUser.providerData.some(p => p.providerId === 'google.com')
+              && !firebaseUser.providerData.some(p => p.providerId === 'password');
+            if (isGoogleOnly) {
+              setUser({ ...profile, id: firebaseUser.uid, needsNameSetup: true });
+              setLoading(false);
+              return;
+            }
           }
           setUser({ ...profile, id: firebaseUser.uid });
         } catch (err) {
           console.error('Failed to load profile:', err);
-          // Last resort fallback
           try {
             await createUserProfile(firebaseUser.uid, {
               name: firebaseUser.email.split('@')[0],
@@ -79,6 +87,11 @@ export function AuthProvider({ children }) {
     setUser(null);
   };
 
+  const finishNameSetup = async (name) => {
+    await updateUserName(user.id, name);
+    setUser(prev => ({ ...prev, name, needsNameSetup: false }));
+  };
+
   const updateUser = (updates) => {
     setUser(prev => ({ ...prev, ...updates }));
   };
@@ -86,7 +99,7 @@ export function AuthProvider({ children }) {
   if (loading) return null;
 
   return (
-    <AuthContext.Provider value={{ user, login, loginWithGoogle, register, logout, updateUser }}>
+    <AuthContext.Provider value={{ user, login, loginWithGoogle, register, logout, updateUser, finishNameSetup }}>
       {children}
     </AuthContext.Provider>
   );

@@ -223,6 +223,10 @@ export async function updateUserColor(userId, color) {
   await updateDoc(doc(db, 'users', userId), { icon_color: color });
 }
 
+export async function updateUserName(userId, name) {
+  await updateDoc(doc(db, 'users', userId), { name });
+}
+
 // ── Group Trips ──
 
 export async function getGroupTrips(userId) {
