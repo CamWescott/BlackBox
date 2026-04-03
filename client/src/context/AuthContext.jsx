@@ -33,12 +33,12 @@ export function AuthProvider({ children }) {
             const isGoogleOnly = firebaseUser.providerData.some(p => p.providerId === 'google.com')
               && !firebaseUser.providerData.some(p => p.providerId === 'password');
             if (isGoogleOnly) {
-              setUser({ ...profile, id: firebaseUser.uid, needsNameSetup: true });
+              setUser({ ...profile, id: firebaseUser.uid, needsNameSetup: true, photoURL: firebaseUser.photoURL || null });
               setLoading(false);
               return;
             }
           }
-          setUser({ ...profile, id: firebaseUser.uid });
+          setUser({ ...profile, id: firebaseUser.uid, photoURL: firebaseUser.photoURL || null });
         } catch (err) {
           console.error('Failed to load profile:', err);
           try {
@@ -52,6 +52,7 @@ export function AuthProvider({ children }) {
             email: firebaseUser.email,
             name: firebaseUser.email.split('@')[0],
             icon_color: '#22c55e',
+            photoURL: firebaseUser.photoURL || null,
           });
         }
       } else {
