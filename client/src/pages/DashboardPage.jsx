@@ -74,7 +74,7 @@ function EditableName({ name, userId, onUpdate }) {
     <p>
       <span className="text-theme-muted">Name:</span>{' '}
       <span className="text-theme-primary">{name}</span>
-      <button onClick={() => setEditing(true)} className="ml-2 text-xs text-theme-faint hover:text-theme-primary">edit</button>
+      <button onClick={() => setEditing(true)} className="ml-2 text-xs px-2 py-0.5 border border-theme rounded text-theme-muted hover:text-theme-primary hover:bg-theme-tertiary transition">edit</button>
     </p>
   );
 }
