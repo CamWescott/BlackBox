@@ -2,6 +2,7 @@ import { useState } from 'react';
 import AirportSearch from './AirportSearch';
 import { useAuth } from '../context/AuthContext';
 import { addFlight, addMultiLegTrip } from '../services/firestore';
+import { lookupFlight, buildFlightNumber } from '../services/flightLookup';
 
 const airlines = [
   'Delta', 'United', 'American Airlines', 'Southwest', 'JetBlue',
@@ -20,6 +21,32 @@ const cabinClasses = [
 
 function LegForm({ leg, index, onChange, onRemove, showRemove }) {
   const update = (field, value) => onChange(index, field, value);
+  const [lookupLoading, setLookupLoading] = useState(false);
+  const [lookupMsg, setLookupMsg] = useState('');
+
+  const handleLookup = async () => {
+    if (!leg.flight_number || !leg.travel_date) {
+      setLookupMsg('Enter flight number and date first');
+      return;
+    }
+    setLookupLoading(true);
+    setLookupMsg('');
+    try {
+      const fullNumber = buildFlightNumber(leg.airline, leg.flight_number);
+      const result = await lookupFlight(fullNumber, leg.travel_date);
+      if (result) {
+        update('origin', result.origin);
+        update('destination', result.destination);
+        setLookupMsg(`Found: ${result.origin.code} → ${result.destination.code}`);
+      } else {
+        setLookupMsg('Flight not found — try entering airports manually');
+      }
+    } catch (err) {
+      setLookupMsg('Lookup failed — try entering airports manually');
+    } finally {
+      setLookupLoading(false);
+    }
+  };
 
   return (
     <div className="border border-theme rounded-lg p-4 space-y-3">
@@ -51,11 +78,51 @@ function LegForm({ leg, index, onChange, onRemove, showRemove }) {
             type="text"
             value={leg.flight_number}
             onChange={(e) => update('flight_number', e.target.value)}
-            placeholder="e.g. DL1234"
+            placeholder="e.g. 1234 or DL1234"
             required
             className="w-full px-3 py-2 bg-theme-tertiary border border-theme rounded text-theme-primary text-sm placeholder-gray-500 focus:outline-none"
           />
         </div>
+      </div>
+
+      <div>
+        <label className="block text-sm text-theme-muted mb-1">Date</label>
+        <input
+          type="date"
+          value={leg.travel_date}
+          onChange={(e) => update('travel_date', e.target.value)}
+          required
+          className="w-full px-3 py-2 bg-theme-tertiary border border-theme rounded text-theme-primary text-sm focus:outline-none"
+        />
+      </div>
+
+      {/* Lookup button */}
+      <div>
+        <button
+          type="button"
+          onClick={handleLookup}
+          disabled={lookupLoading || !leg.flight_number || !leg.travel_date}
+          className="w-full py-2 text-sm border border-theme rounded-lg text-theme-secondary hover:bg-theme-tertiary transition disabled:opacity-40 flex items-center justify-center gap-2"
+        >
+          {lookupLoading ? (
+            <>
+              <span className="inline-block w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+              Looking up flight...
+            </>
+          ) : (
+            <>
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              Auto-fill airports from flight number
+            </>
+          )}
+        </button>
+        {lookupMsg && (
+          <p className={`text-xs mt-1 ${lookupMsg.startsWith('Found') ? 'text-green-400' : 'text-theme-muted'}`}>
+            {lookupMsg}
+          </p>
+        )}
       </div>
 
       <div className="grid grid-cols-2 gap-3">
@@ -63,7 +130,7 @@ function LegForm({ leg, index, onChange, onRemove, showRemove }) {
         <AirportSearch label="Destination" value={leg.destination} onChange={(v) => update('destination', v)} placeholder="To..." />
       </div>
 
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="block text-sm text-theme-muted mb-1">Seat</label>
           <input
@@ -83,16 +150,6 @@ function LegForm({ leg, index, onChange, onRemove, showRemove }) {
           >
             {cabinClasses.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
           </select>
-        </div>
-        <div>
-          <label className="block text-sm text-theme-muted mb-1">Date</label>
-          <input
-            type="date"
-            value={leg.travel_date}
-            onChange={(e) => update('travel_date', e.target.value)}
-            required
-            className="w-full px-3 py-2 bg-theme-tertiary border border-theme rounded text-theme-primary text-sm focus:outline-none"
-          />
         </div>
       </div>
 
@@ -125,9 +182,11 @@ export default function AddFlightModal({ onClose, onFlightAdded, friends = [] })
   const [loading, setLoading] = useState(false);
 
   const updateLeg = (index, field, value) => {
-    const updated = [...legs];
-    updated[index] = { ...updated[index], [field]: value };
-    setLegs(updated);
+    setLegs(prev => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], [field]: value };
+      return updated;
+    });
   };
 
   const addLeg = () => {

@@ -7,6 +7,15 @@ export default function AirportSearch({ label, value, onChange, placeholder }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
+  // Sync display when value changes externally (e.g. flight lookup)
+  useEffect(() => {
+    if (value && value.code) {
+      setQuery(`${value.code} - ${value.city || value.name || ''}`);
+    } else if (!value) {
+      setQuery('');
+    }
+  }, [value?.code]);
+
   useEffect(() => {
     function handleClickOutside(e) {
       if (ref.current && !ref.current.contains(e.target)) setOpen(false);
