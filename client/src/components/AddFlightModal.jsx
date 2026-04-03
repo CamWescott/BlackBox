@@ -1,15 +1,22 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import AirportSearch from './AirportSearch';
 import { useAuth } from '../context/AuthContext';
 import { addFlight, addMultiLegTrip } from '../services/firestore';
 import { lookupFlight, buildFlightNumber } from '../services/flightLookup';
 
 const airlines = [
-  'Delta', 'United', 'American Airlines', 'Southwest', 'JetBlue',
-  'Alaska Airlines', 'Spirit', 'Frontier', 'Hawaiian Airlines',
-  'British Airways', 'Lufthansa', 'Air France', 'Emirates',
-  'Qatar Airways', 'Singapore Airlines', 'Qantas', 'KLM',
-  'Turkish Airlines', 'Cathay Pacific', 'ANA', 'JAL', 'Other'
+  'Aer Lingus', 'Aeromexico', 'Air Canada', 'Air France', 'Air India',
+  'Air New Zealand', 'Alaska Airlines', 'Allegiant Air', 'American Airlines',
+  'ANA', 'Avianca', 'Breeze Airways', 'British Airways', 'Cape Air',
+  'Cathay Pacific', 'Copa Airlines', 'Delta', 'EasyJet', 'Emirates',
+  'Ethiopian Airlines', 'Etihad Airways', 'EVA Air', 'Finnair',
+  'Frontier', 'Hawaiian Airlines', 'Iberia', 'Icelandair', 'ITA Airways',
+  'JAL', 'JetBlue', 'KLM', 'Korean Air', 'LATAM', 'LOT Polish Airlines',
+  'Lufthansa', 'Norwegian', 'Qantas', 'Qatar Airways', 'Ryanair',
+  'SAS Scandinavian', 'Singapore Airlines', 'Southwest', 'Spirit',
+  'Sun Country', 'Swiss International', 'TAP Air Portugal',
+  'Turkish Airlines', 'United', 'Virgin Atlantic', 'Vueling',
+  'WestJet', 'Wizz Air',
 ];
 
 const cabinClasses = [
@@ -18,6 +25,57 @@ const cabinClasses = [
   { value: 'business', label: 'Business' },
   { value: 'first', label: 'First' },
 ];
+
+function AirlineInput({ value, onChange }) {
+  const [query, setQuery] = useState(value || '');
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  const filtered = query
+    ? airlines.filter(a => a.toLowerCase().includes(query.toLowerCase())).slice(0, 8)
+    : airlines.slice(0, 8);
+
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Sync when value changes externally (e.g. from flight lookup)
+  useEffect(() => {
+    if (value && value !== query) setQuery(value);
+  }, [value]);
+
+  return (
+    <div ref={ref} className="relative">
+      <label className="block text-sm text-theme-muted mb-1">Airline</label>
+      <input
+        type="text"
+        value={query}
+        onChange={e => { setQuery(e.target.value); onChange(e.target.value); setOpen(true); }}
+        onFocus={() => setOpen(true)}
+        placeholder="Type or search..."
+        required
+        className="w-full px-3 py-2 bg-theme-tertiary border border-theme rounded text-theme-primary text-sm placeholder-gray-500 focus:outline-none"
+      />
+      {open && filtered.length > 0 && (
+        <div className="absolute w-full mt-1 bg-theme-secondary border border-theme rounded shadow-xl max-h-40 overflow-y-auto" style={{ zIndex: 10000 }}>
+          {filtered.map(a => (
+            <button
+              key={a}
+              type="button"
+              onClick={() => { setQuery(a); onChange(a); setOpen(false); }}
+              className="w-full text-left px-3 py-2 hover:bg-theme-tertiary text-sm text-theme-primary"
+            >
+              {a}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function LegForm({ leg, index, onChange, onRemove, showRemove }) {
   const update = (field, value) => onChange(index, field, value);
@@ -37,6 +95,7 @@ function LegForm({ leg, index, onChange, onRemove, showRemove }) {
       if (result) {
         update('origin', result.origin);
         update('destination', result.destination);
+        if (result.airline) update('airline', result.airline);
         setLookupMsg(`Found: ${result.origin.code} → ${result.destination.code}`);
       } else {
         setLookupMsg('Flight not found — try entering airports manually');
@@ -60,25 +119,14 @@ function LegForm({ leg, index, onChange, onRemove, showRemove }) {
       </div>
 
       <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="block text-sm text-theme-muted mb-1">Airline</label>
-          <select
-            value={leg.airline}
-            onChange={(e) => update('airline', e.target.value)}
-            required
-            className="w-full px-3 py-2 bg-theme-tertiary border border-theme rounded text-theme-primary text-sm focus:outline-none"
-          >
-            <option value="">Select...</option>
-            {airlines.map(a => <option key={a} value={a}>{a}</option>)}
-          </select>
-        </div>
+        <AirlineInput value={leg.airline} onChange={(v) => update('airline', v)} />
         <div>
           <label className="block text-sm text-theme-muted mb-1">Flight Number</label>
           <input
             type="text"
             value={leg.flight_number}
             onChange={(e) => update('flight_number', e.target.value)}
-            placeholder="e.g. 1234 or DL1234"
+            placeholder="e.g. 1234 or EI123"
             required
             className="w-full px-3 py-2 bg-theme-tertiary border border-theme rounded text-theme-primary text-sm placeholder-gray-500 focus:outline-none"
           />

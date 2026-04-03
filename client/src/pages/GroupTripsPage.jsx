@@ -10,11 +10,18 @@ import AirportSearch from '../components/AirportSearch';
 import Header from '../components/Header';
 
 const airlines = [
-  'Delta', 'United', 'American Airlines', 'Southwest', 'JetBlue',
-  'Alaska Airlines', 'Spirit', 'Frontier', 'Hawaiian Airlines',
-  'British Airways', 'Lufthansa', 'Air France', 'Emirates',
-  'Qatar Airways', 'Singapore Airlines', 'Qantas', 'KLM',
-  'Turkish Airlines', 'Cathay Pacific', 'ANA', 'JAL', 'Other'
+  'Aer Lingus', 'Aeromexico', 'Air Canada', 'Air France', 'Air India',
+  'Air New Zealand', 'Alaska Airlines', 'Allegiant Air', 'American Airlines',
+  'ANA', 'Avianca', 'Breeze Airways', 'British Airways', 'Cape Air',
+  'Cathay Pacific', 'Copa Airlines', 'Delta', 'EasyJet', 'Emirates',
+  'Ethiopian Airlines', 'Etihad Airways', 'EVA Air', 'Finnair',
+  'Frontier', 'Hawaiian Airlines', 'Iberia', 'Icelandair', 'ITA Airways',
+  'JAL', 'JetBlue', 'KLM', 'Korean Air', 'LATAM', 'LOT Polish Airlines',
+  'Lufthansa', 'Norwegian', 'Qantas', 'Qatar Airways', 'Ryanair',
+  'SAS Scandinavian', 'Singapore Airlines', 'Southwest', 'Spirit',
+  'Sun Country', 'Swiss International', 'TAP Air Portugal',
+  'Turkish Airlines', 'United', 'Virgin Atlantic', 'Vueling',
+  'WestJet', 'Wizz Air',
 ];
 
 function CreateTripModal({ onClose, onCreate, friends }) {
