@@ -244,6 +244,7 @@ export async function createGroupTrip(userId, tripData) {
     start_date: tripData.start_date || '',
     end_date: tripData.end_date || '',
     member_ids: [userId],
+    guest_names: tripData.guest_names || [],
     created_at: serverTimestamp(),
   });
   const snap = await getDoc(docRef);
@@ -282,6 +283,16 @@ export async function addFlightToGroupTrip(userId, tripId, flightData) {
 
 export async function deleteGroupTrip(tripId) {
   await deleteDoc(doc(db, 'group_trips', tripId));
+}
+
+export async function updateGroupTripGuests(tripId, guestNames) {
+  await updateDoc(doc(db, 'group_trips', tripId), { guest_names: guestNames });
+}
+
+export async function linkFlightToGroupTrip(flightId, tripId) {
+  await updateDoc(doc(db, 'flights', flightId), { group_trip_id: tripId });
+  const snap = await getDoc(doc(db, 'flights', flightId));
+  return { id: snap.id, ...snap.data() };
 }
 
 // ── Stats (computed client-side) ──

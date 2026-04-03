@@ -3,7 +3,8 @@ import { useAuth } from '../context/AuthContext';
 import {
   getGroupTrips, createGroupTrip, deleteGroupTrip,
   getGroupTripFlights, addFlightToGroupTrip, addMemberToGroupTrip,
-  getFriends, getUserProfile,
+  getFriends, getUserProfile, getFlights,
+  updateGroupTripGuests, linkFlightToGroupTrip,
 } from '../services/firestore';
 import AirportSearch from '../components/AirportSearch';
 import Header from '../components/Header';
@@ -22,6 +23,8 @@ function CreateTripModal({ onClose, onCreate, friends }) {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [selectedFriends, setSelectedFriends] = useState([]);
+  const [guestNames, setGuestNames] = useState([]);
+  const [guestInput, setGuestInput] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -33,6 +36,14 @@ function CreateTripModal({ onClose, onCreate, friends }) {
     }
   };
 
+  const addGuest = () => {
+    const trimmed = guestInput.trim();
+    if (trimmed && !guestNames.includes(trimmed)) {
+      setGuestNames([...guestNames, trimmed]);
+    }
+    setGuestInput('');
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!name.trim()) { setError('Please enter a trip name'); return; }
@@ -40,7 +51,7 @@ function CreateTripModal({ onClose, onCreate, friends }) {
     setError('');
     try {
       await onCreate(
-        { name: name.trim(), description, start_date: startDate, end_date: endDate },
+        { name: name.trim(), description, start_date: startDate, end_date: endDate, guest_names: guestNames },
         selectedFriends.map(f => f.id)
       );
       onClose();
@@ -109,6 +120,37 @@ function CreateTripModal({ onClose, onCreate, friends }) {
               </div>
             </div>
           )}
+
+          {/* Guest travelers (no account) */}
+          <div>
+            <label className="block text-sm text-theme-muted mb-2">Other Travelers (no account needed)</label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={guestInput}
+                onChange={e => setGuestInput(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addGuest(); } }}
+                placeholder="Enter name and press Enter"
+                className="flex-1 px-3 py-2 bg-theme-tertiary border border-theme rounded text-theme-primary text-sm placeholder-gray-500 focus:outline-none"
+              />
+              <button type="button" onClick={addGuest}
+                className="px-3 py-2 border border-theme rounded text-theme-muted text-sm hover:text-theme-primary hover:bg-theme-tertiary transition">
+                Add
+              </button>
+            </div>
+            {guestNames.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-2">
+                {guestNames.map((g, i) => (
+                  <span key={i} className="flex items-center gap-1.5 px-3 py-1.5 bg-theme-tertiary border border-theme rounded-lg text-sm text-theme-primary">
+                    <span className="w-3 h-3 rounded-full bg-gray-500" />
+                    {g}
+                    <button type="button" onClick={() => setGuestNames(guestNames.filter((_, j) => j !== i))}
+                      className="text-theme-faint hover:text-red-400 ml-1">&times;</button>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
 
           <button type="submit" disabled={loading}
             className="w-full py-2 font-semibold rounded-lg transition disabled:opacity-50"
@@ -202,6 +244,86 @@ function AddTripFlightModal({ onClose, onAdd }) {
   );
 }
 
+function AddGuestInline({ onAdd }) {
+  const [input, setInput] = useState('');
+  const [open, setOpen] = useState(false);
+
+  if (!open) {
+    return (
+      <button onClick={() => setOpen(true)}
+        className="px-3 py-1.5 bg-theme-tertiary border border-dashed border-theme rounded-lg text-theme-muted text-sm hover:text-theme-primary transition">
+        + Add guest...
+      </button>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-1">
+      <input
+        autoFocus
+        type="text"
+        value={input}
+        onChange={e => setInput(e.target.value)}
+        onKeyDown={e => {
+          if (e.key === 'Enter' && input.trim()) { onAdd(input.trim()); setInput(''); setOpen(false); }
+          if (e.key === 'Escape') { setOpen(false); setInput(''); }
+        }}
+        placeholder="Guest name"
+        className="px-2 py-1.5 bg-theme-tertiary border border-theme rounded text-theme-primary text-sm w-32 focus:outline-none"
+      />
+      <button onClick={() => { if (input.trim()) { onAdd(input.trim()); setInput(''); setOpen(false); } }}
+        className="text-xs text-theme-muted hover:text-theme-primary px-1">Add</button>
+      <button onClick={() => { setOpen(false); setInput(''); }}
+        className="text-xs text-theme-faint hover:text-theme-primary px-1">&times;</button>
+    </div>
+  );
+}
+
+function LinkFlightModal({ onClose, onLink, userFlights, tripFlights }) {
+  const linkedIds = new Set((tripFlights || []).map(f => f.id));
+  const available = userFlights.filter(f => !linkedIds.has(f.id) && !f.group_trip_id);
+
+  return (
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4" style={{ zIndex: 9999 }}>
+      <div className="bg-theme-primary border border-theme rounded-xl w-full max-w-md max-h-[80vh] overflow-y-auto p-6">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-lg font-bold text-theme-primary">Link Existing Flight</h2>
+          <button onClick={onClose} className="text-theme-muted hover:text-theme-primary text-2xl">&times;</button>
+        </div>
+        {available.length === 0 ? (
+          <p className="text-theme-muted text-sm text-center py-4">No available flights to link. All your flights are either already in this trip or linked to another.</p>
+        ) : (
+          <div className="space-y-2">
+            {available.map(f => (
+              <button
+                key={f.id}
+                onClick={() => onLink(f.id)}
+                className="w-full flex items-center gap-3 bg-theme-secondary border border-theme rounded-lg p-3 hover:bg-theme-tertiary transition text-left"
+              >
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-theme-primary font-mono text-sm">{f.origin_code}</span>
+                    <span className="text-theme-faint">→</span>
+                    <span className="text-theme-primary font-mono text-sm">{f.destination_code}</span>
+                    <span className="text-theme-muted text-xs">{f.airline} {f.flight_number}</span>
+                  </div>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <span className="text-xs text-theme-faint">{f.travel_date}</span>
+                    <span className={`text-xs px-1.5 py-0.5 rounded ${f.status === 'flown' ? 'bg-green-900/50 text-green-300' : 'bg-blue-900/50 text-blue-300'}`}>
+                      {f.status}
+                    </span>
+                  </div>
+                </div>
+                <span className="text-theme-muted text-sm">+</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function GroupTripsPage() {
   const { user } = useAuth();
   const [trips, setTrips] = useState([]);
@@ -211,18 +333,22 @@ export default function GroupTripsPage() {
   const [tripMembers, setTripMembers] = useState({});
   const [showCreate, setShowCreate] = useState(false);
   const [showAddFlight, setShowAddFlight] = useState(null);
+  const [showLinkFlight, setShowLinkFlight] = useState(null);
+  const [userFlights, setUserFlights] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => { loadTrips(); }, []);
 
   const loadTrips = async () => {
     try {
-      const [tripData, friendData] = await Promise.all([
+      const [tripData, friendData, flightData] = await Promise.all([
         getGroupTrips(user.id),
         getFriends(user.id),
+        getFlights(user.id),
       ]);
       setTrips(tripData);
       setFriends(friendData.filter(f => f.status === 'accepted'));
+      setUserFlights(flightData);
     } catch (err) {
       console.error('Failed to load trips:', err);
     } finally {
@@ -280,6 +406,33 @@ export default function GroupTripsPage() {
       ...prev,
       [tripId]: [...(prev[tripId] || []), flight],
     }));
+  };
+
+  const handleAddGuest = async (tripId, guestName) => {
+    const trip = trips.find(t => t.id === tripId);
+    const updated = [...(trip.guest_names || []), guestName];
+    await updateGroupTripGuests(tripId, updated);
+    setTrips(trips.map(t => t.id === tripId ? { ...t, guest_names: updated } : t));
+  };
+
+  const handleRemoveGuest = async (tripId, index) => {
+    const trip = trips.find(t => t.id === tripId);
+    const updated = (trip.guest_names || []).filter((_, i) => i !== index);
+    await updateGroupTripGuests(tripId, updated);
+    setTrips(trips.map(t => t.id === tripId ? { ...t, guest_names: updated } : t));
+  };
+
+  const handleLinkFlight = async (tripId, flightId) => {
+    try {
+      const linked = await linkFlightToGroupTrip(flightId, tripId);
+      setTripFlights(prev => ({
+        ...prev,
+        [tripId]: [...(prev[tripId] || []), linked],
+      }));
+      setShowLinkFlight(null);
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   const handleInviteFriend = async (tripId, friendId) => {
@@ -380,6 +533,18 @@ export default function GroupTripsPage() {
                               </div>
                             );
                           })}
+                          {/* Guest travelers */}
+                          {(trip.guest_names || []).map((g, i) => (
+                            <div key={`guest-${i}`} className="flex items-center gap-2 px-3 py-1.5 bg-theme-primary border border-dashed border-theme rounded-lg text-sm">
+                              <div className="w-3 h-3 rounded-full bg-gray-500" />
+                              <span className="text-theme-primary">{g}</span>
+                              <span className="text-xs text-theme-faint">(guest)</span>
+                              {isOwner && (
+                                <button onClick={() => handleRemoveGuest(trip.id, i)}
+                                  className="text-theme-faint hover:text-red-400 ml-1">&times;</button>
+                              )}
+                            </div>
+                          ))}
                           {isOwner && uninvitedFriends.length > 0 && (
                             <select
                               onChange={(e) => { if (e.target.value) handleInviteFriend(trip.id, e.target.value); e.target.value = ''; }}
@@ -391,6 +556,9 @@ export default function GroupTripsPage() {
                               ))}
                             </select>
                           )}
+                          {isOwner && (
+                            <AddGuestInline onAdd={(name) => handleAddGuest(trip.id, name)} />
+                          )}
                         </div>
                       </div>
 
@@ -398,12 +566,20 @@ export default function GroupTripsPage() {
                       <div>
                         <div className="flex justify-between items-center mb-2">
                           <h4 className="text-sm font-semibold text-theme-muted">Flights ({flights.length})</h4>
-                          <button
-                            onClick={() => setShowAddFlight(trip.id)}
-                            className="text-xs border border-theme text-theme-secondary px-2 py-1 rounded hover:bg-theme-tertiary transition"
-                          >
-                            + Add Flight
-                          </button>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => setShowLinkFlight(trip.id)}
+                              className="text-xs border border-theme text-theme-secondary px-2 py-1 rounded hover:bg-theme-tertiary transition"
+                            >
+                              + Link Existing
+                            </button>
+                            <button
+                              onClick={() => setShowAddFlight(trip.id)}
+                              className="text-xs border border-theme text-theme-secondary px-2 py-1 rounded hover:bg-theme-tertiary transition"
+                            >
+                              + New Flight
+                            </button>
+                          </div>
                         </div>
                         {flights.length > 0 ? (
                           <div className="space-y-2">
@@ -465,6 +641,15 @@ export default function GroupTripsPage() {
         <AddTripFlightModal
           onClose={() => setShowAddFlight(null)}
           onAdd={(data) => handleAddFlight(showAddFlight, data)}
+        />
+      )}
+
+      {showLinkFlight && (
+        <LinkFlightModal
+          onClose={() => setShowLinkFlight(null)}
+          onLink={(flightId) => handleLinkFlight(showLinkFlight, flightId)}
+          userFlights={userFlights}
+          tripFlights={tripFlights[showLinkFlight] || []}
         />
       )}
     </div>
