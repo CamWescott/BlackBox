@@ -1,4 +1,4 @@
-const RAPID_API_KEY = '***REMOVED-RAPIDAPI-KEY***';
+const RAPID_API_KEY = import.meta.env.VITE_RAPIDAPI_KEY;
 const RAPID_API_HOST = 'aerodatabox.p.rapidapi.com';
 
 // Map airline names to IATA codes
